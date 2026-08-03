@@ -1,0 +1,158 @@
+# Building and Running
+
+## 1. Prerequisites
+
+Use a Mac with:
+
+- macOS 14 or later.
+- Xcode 16 or later selected with `xcode-select`.
+- Homebrew and XcodeGen 2.40 or later.
+- An Apple Developer identity when testing embedded extensions or producing a signed archive.
+
+Install XcodeGen:
+
+```bash
+brew install xcodegen
+```
+
+## 2. Generate the Xcode project
+
+From the repository root:
+
+```bash
+./Scripts/bootstrap.sh
+```
+
+This builds browser-extension distributions and generates `PowerTools.xcodeproj` from `project.yml`.
+
+The generated project is intentionally not committed. `project.yml` is the source of truth.
+
+## 3. Configure signing
+
+Open `PowerTools.xcodeproj`, then select the same Apple Development Team for all three targets:
+
+- `PowerTools`
+- `PowerToolsSafariExtension`
+- `PowerToolsShareExtension`
+
+The sample identifiers are:
+
+```text
+com.abhi.PowerTools
+com.abhi.PowerTools.LinkRouter.SafariExtension
+com.abhi.PowerTools.LinkRouter.ShareExtension
+```
+
+Change them in `project.yml` when necessary, then regenerate the project. Keep the Safari extension identifier in `ExtensionsSettingsView.swift` synchronized with the target bundle identifier.
+
+## 4. Run the host application
+
+Run the `PowerTools` scheme. The application is an accessory/menu-bar process and does not show a Dock icon.
+
+On first launch it opens Settings. Choose a primary browser or leave **Ask Every Time** as the primary target, then select **Make Default**.
+
+For a local test build that does not require an Apple Developer team, run:
+
+```bash
+./Scripts/build-local.sh
+open build/PowerTools.app
+```
+
+This produces an ad-hoc-signed app for development on the current Mac. The
+embedded extensions are built and signed consistently, but distribution and
+full extension activation still require normal Apple Developer signing.
+
+macOS may require explicit confirmation before changing the default browser. Confirm that both HTTP and HTTPS links are assigned to Power Tools in System Settings.
+
+## 5. Test browser-originated links
+
+A default-browser router receives links opened by other applications. Browsers normally consume their own clicked links, so browser-originated routing uses an extension.
+
+### Safari
+
+1. Run the signed host app once.
+2. Open Power Tools → Settings → Extensions.
+3. Select **Open Safari Extension Settings**.
+4. Enable **Power Tools Link Router** in Safari.
+5. Use the toolbar action or link context menu.
+
+### Chromium-family browsers
+
+The bootstrap script creates:
+
+```text
+BrowserExtensions/PowerToolsLinkRouter/dist/chromium
+```
+
+Open the browser extension-management page, enable developer mode, and load that folder as an unpacked extension. The toolbar command follows the host app’s **Browser extension always opens the picker** preference; the extension also exposes an explicit picker context-menu/keyboard command.
+
+### Firefox
+
+The bootstrap script creates:
+
+```text
+BrowserExtensions/PowerToolsLinkRouter/dist/firefox
+```
+
+Load `manifest.json` as a temporary extension through Firefox's debugging interface during development. The toolbar command follows the host app’s picker preference, while the explicit picker action always shows the chooser. Store publication and signing are separate release tasks.
+
+The extensions hand the selected page/link to the `powertools-link://` command scheme. A browser may display a one-time external-application confirmation.
+
+## 6. Test Share, Services, Shortcuts, Focus, and Handoff
+
+### Share extension
+
+Enable the extension under macOS Login Items & Extensions when it does not appear automatically. Share a URL or selected text and choose **Power Tools Link Router**.
+
+### Services
+
+Select text containing one or more URLs, open the Services submenu, and use either:
+
+- **Open URLs with Power Tools**
+- **Open URLs with Power Tools Picker**
+
+Services may need to be enabled in Keyboard Shortcuts → Services.
+
+### Shortcuts and App Intents
+
+After launching the signed app, open Shortcuts and search for Power Tools. Included intents cover routing a URL, cleaning a URL, opening clipboard URLs, and changing the primary browser.
+
+### Focus Filter
+
+Add the Power Tools browser filter from a Focus configuration in System Settings. A current macOS 26.5 system regression has been reported in which `SetFocusFilterIntent.perform()` is not called; test the exact OS build and retain Shortcuts as the fallback automation path.
+
+### Handoff
+
+The app declares `NSUserActivityTypeBrowsingWeb` and routes a received web activity through the same coordinator.
+
+## 7. Validate
+
+Run:
+
+```bash
+./Scripts/validate.sh
+```
+
+On macOS with XcodeGen installed, this also performs an unsigned Xcode build. The CI workflow performs the same generation and build on a macOS runner.
+
+## 8. Archive
+
+Set your Apple Team ID and run:
+
+```bash
+DEVELOPMENT_TEAM=ABCDE12345 ./Scripts/archive-release.sh
+```
+
+The archive is written to:
+
+```text
+build/PowerTools.xcarchive
+```
+
+Distribution outside the Mac App Store still requires Developer ID signing and notarization. Those credentials are intentionally not embedded in this repository.
+
+## 9. Direct-distribution design
+
+The host application is not sandboxed because it discovers browser profiles and PWAs by reading browser support directories. The embedded Safari and Share extensions are sandboxed.
+
+A Mac App Store edition would require a different profile-access strategy, user-selected security-scoped folders, additional entitlements, and a full App Review assessment. Keep that as a separate distribution configuration rather than silently changing the direct build.

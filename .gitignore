@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Xcode and XcodeGen output
+BrowserExtensions/PowerToolsLinkRouter/dist/
+DerivedData*/
+*.xcuserstate
+xcuserdata/
+PowerTools.xcodeproj/
+*.xcarchive
+*.xcresult
+*.dSYM
+build/
+
+# Coverage and profiling output
+*.profraw
+*.profdata
+*.xccovarchive
+*.xccovreport
+
+# Generated browser-extension distributions
+BrowserExtensions/PowerToolsLinkRouter/dist/

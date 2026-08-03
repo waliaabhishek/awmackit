@@ -1,0 +1,15 @@
+name: macOS build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Validate, test, generate, and build
+        run: ./Scripts/validate.sh
