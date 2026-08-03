@@ -9,7 +9,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var isFinishingTermination = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.regular)
         NSApp.servicesProvider = servicesProvider
         NSUpdateDynamicServices()
 
