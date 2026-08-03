@@ -1,154 +1,148 @@
 import AppKit
 import LinkRouterCore
 import SwiftUI
-import UniformTypeIdentifiers
+
+enum NativeAppPresentation {
+    static func applicationURL(for definition: NativeAppDefinition) -> URL? {
+        for bundleIdentifier in definition.candidateBundleIdentifiers {
+            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) {
+                return url
+            }
+        }
+
+        if let scheme = definition.customScheme,
+            let probe = URL(string: "\(scheme):"),
+            let url = NSWorkspace.shared.urlForApplication(toOpen: probe)
+        {
+            return url
+        }
+
+        return nil
+    }
+
+    static func icon(for definition: NativeAppDefinition) -> NSImage {
+        if let applicationURL = applicationURL(for: definition) {
+            return NSWorkspace.shared.icon(forFile: applicationURL.path)
+        }
+        return NSImage(systemSymbolName: "app", accessibilityDescription: definition.displayName) ?? NSImage()
+    }
+}
 
 struct NativeAppsSettingsView: View {
     @EnvironmentObject private var settingsStore: SettingsStore
-    @EnvironmentObject private var browserCatalog: BrowserCatalog
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Apps and Web Services").font(.title2.bold())
-            Text(
-                "Open supported web links directly in installed desktop apps or a browser/PWA chosen for the service. User rules take precedence."
-            )
-            .foregroundStyle(.secondary)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                SettingsPageHeader(
+                    title: "App Links",
+                    subtitle: "Choose which installed desktop apps should receive their supported links."
+                )
 
-            GroupBox("Services Without a Dedicated Desktop App") {
-                VStack(alignment: .leading, spacing: 10) {
-                    serviceTargetPicker(
-                        title: "Google Meet",
-                        selection: googleMeetSelection,
-                        automaticTitle: "Automatic Chromium browser",
-                        configuredTarget: settingsStore.settings.linkRouter.googleMeetTarget,
-                        chooseApplication: chooseGoogleMeetApplication
+                SettingsSectionCard("App Link Behavior") {
+                    SettingsToggleRow(
+                        title: "Open links in desktop apps",
+                        detail:
+                            "Custom rules are checked first. If an app is unavailable, normal browser routing is used.",
+                        systemImage: "arrow.up.forward.app.fill",
+                        isOn: linkRouterBinding(\.useNativeAppRouting)
                     )
-                    Text(
-                        "Automatic mode prefers Chrome, then Edge, Brave, Vivaldi, Chromium, and other supported Chromium browsers."
-                    )
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    serviceTargetPicker(
-                        title: "YouTube",
-                        selection: youtubeSelection,
-                        automaticTitle: nil,
-                        configuredTarget: settingsStore.settings.linkRouter.youtubeTarget,
-                        chooseApplication: chooseYouTubeApplication
-                    )
-                }
-                .padding(.vertical, 4)
-            }
 
-            Toggle(
-                "Enable native app routing",
-                isOn: Binding(
-                    get: { settingsStore.settings.linkRouter.useNativeAppRouting },
-                    set: { settingsStore.settings.linkRouter.useNativeAppRouting = $0 }
-                ))
-
-            List(NativeAppCatalog.builtIns) { definition in
-                HStack {
-                    Toggle(isOn: enabledBinding(definition.id)) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(definition.displayName)
-                            Text(definition.hostSuffixes.joined(separator: ", "))
+                    if !installedDefinitions.isEmpty {
+                        Divider()
+                            .padding(.leading, SettingsDesign.iconColumnWidth + SettingsDesign.rowSpacing)
+                        HStack {
+                            Text("\(enabledInstalledCount) of \(installedDefinitions.count) detected apps enabled")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Enable All Detected", action: enableAllDetected)
+                            Button("Disable All", action: disableAllDetected)
+                                .disabled(enabledInstalledCount == 0)
                         }
                     }
-                    Spacer()
-                    if installed(definition) {
-                        Label("Installed", systemImage: "checkmark.circle.fill")
+                }
+
+                SettingsSectionCard("Apps on This Mac") {
+                    if installedDefinitions.isEmpty {
+                        ContentUnavailableView(
+                            "No Supported Apps Detected",
+                            systemImage: "app.dashed",
+                            description: Text("Install a supported desktop app and return here to configure App Links.")
+                        )
+                        .frame(maxWidth: .infinity, minHeight: 180)
+                    } else {
+                        VStack(spacing: 0) {
+                            ForEach(Array(installedDefinitions.enumerated()), id: \.element.id) { index, definition in
+                                appRow(definition)
+                                if index + 1 < installedDefinitions.count {
+                                    Divider()
+                                        .padding(.leading, 48)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if !uninstalledDefinitions.isEmpty {
+                    DisclosureGroup("Other supported apps (\(uninstalledDefinitions.count))") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(
+                                "These become available automatically when Power Tools detects that they are installed."
+                            )
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                            Text(uninstalledDefinitions.map(\.displayName).joined(separator: ", "))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .textSelection(.enabled)
+                        }
+                        .padding(.top, 8)
                     }
+                    .padding(.horizontal, 4)
                 }
             }
-            .listStyle(.inset)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
-    private func serviceTargetPicker(
-        title: String,
-        selection: Binding<String>,
-        automaticTitle: String?,
-        configuredTarget: RouteTarget?,
-        chooseApplication: @escaping () -> Void
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Picker(title, selection: selection) {
-                Text("Disabled").tag("__disabled__")
-                if let automaticTitle {
-                    Text(automaticTitle).tag("__automatic__")
-                }
-                Divider()
-                if let configuredTarget,
-                    !browserCatalog.normalTargets.contains(where: { $0.id == configuredTarget.id })
-                {
-                    Text(configuredTarget.displayName).tag(configuredTarget.id)
-                    Divider()
-                }
-                ForEach(browserCatalog.normalTargets) { target in
-                    Label {
-                        Text(target.displayName)
-                    } icon: {
-                        Image(nsImage: browserCatalog.icon(for: target))
-                    }
-                    .tag(target.id)
-                }
-            }
-            HStack {
-                Text("Not listed above?")
+    private func appRow(_ definition: NativeAppDefinition) -> some View {
+        HStack(spacing: 12) {
+            Image(nsImage: NativeAppPresentation.icon(for: definition))
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 32, height: 32)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(definition.displayName)
+                    .font(.headline)
+                Text("Open supported \(definition.displayName) links in the app")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Spacer()
-                Button("Choose Another Application…", action: chooseApplication)
             }
+
+            Spacer()
+
+            Toggle("Open in \(definition.displayName)", isOn: enabledBinding(definition.id))
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .disabled(!settingsStore.settings.linkRouter.useNativeAppRouting)
         }
-        .padding(.vertical, 3)
+        .padding(.vertical, 9)
+        .contentShape(Rectangle())
     }
 
-    private var googleMeetSelection: Binding<String> {
-        Binding(
-            get: {
-                let settings = settingsStore.settings.linkRouter
-                guard settings.googleMeetRoutingEnabled else { return "__disabled__" }
-                return settings.googleMeetTarget?.id ?? "__automatic__"
-            },
-            set: { value in
-                switch value {
-                case "__disabled__":
-                    settingsStore.settings.linkRouter.googleMeetRoutingEnabled = false
-                    settingsStore.settings.linkRouter.googleMeetTarget = nil
-                case "__automatic__":
-                    settingsStore.settings.linkRouter.googleMeetRoutingEnabled = true
-                    settingsStore.settings.linkRouter.googleMeetTarget = nil
-                default:
-                    settingsStore.settings.linkRouter.googleMeetRoutingEnabled = true
-                    settingsStore.settings.linkRouter.googleMeetTarget = browserCatalog.target(withID: value)
-                }
-            }
-        )
+    private var installedDefinitions: [NativeAppDefinition] {
+        NativeAppCatalog.builtIns.filter { NativeAppPresentation.applicationURL(for: $0) != nil }
     }
 
-    private var youtubeSelection: Binding<String> {
-        Binding(
-            get: {
-                let settings = settingsStore.settings.linkRouter
-                guard settings.youtubeRoutingEnabled else { return "__disabled__" }
-                return settings.youtubeTarget?.id ?? "__disabled__"
-            },
-            set: { value in
-                if value == "__disabled__" {
-                    settingsStore.settings.linkRouter.youtubeRoutingEnabled = false
-                    settingsStore.settings.linkRouter.youtubeTarget = nil
-                } else {
-                    settingsStore.settings.linkRouter.youtubeRoutingEnabled = true
-                    settingsStore.settings.linkRouter.youtubeTarget = browserCatalog.target(withID: value)
-                }
-            }
-        )
+    private var uninstalledDefinitions: [NativeAppDefinition] {
+        NativeAppCatalog.builtIns.filter { NativeAppPresentation.applicationURL(for: $0) == nil }
+    }
+
+    private var enabledInstalledCount: Int {
+        let enabledIDs = settingsStore.settings.linkRouter.enabledNativeAppIDs
+        return installedDefinitions.filter { enabledIDs.contains($0.id) }.count
     }
 
     private func enabledBinding(_ id: String) -> Binding<Bool> {
@@ -164,47 +158,20 @@ struct NativeAppsSettingsView: View {
         )
     }
 
-    private func installed(_ definition: NativeAppDefinition) -> Bool {
-        definition.candidateBundleIdentifiers.contains {
-            NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) != nil
-        }
-    }
-
-    private func chooseGoogleMeetApplication() {
-        guard let target = chooseApplicationTarget(serviceID: "google-meet") else { return }
-        settingsStore.settings.linkRouter.googleMeetRoutingEnabled = true
-        settingsStore.settings.linkRouter.googleMeetTarget = target
-    }
-
-    private func chooseYouTubeApplication() {
-        guard let target = chooseApplicationTarget(serviceID: "youtube") else { return }
-        settingsStore.settings.linkRouter.youtubeRoutingEnabled = true
-        settingsStore.settings.linkRouter.youtubeTarget = target
-    }
-
-    private func chooseApplicationTarget(serviceID: String) -> RouteTarget? {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.application]
-        panel.directoryURL = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Applications", isDirectory: true)
-        panel.canChooseDirectories = false
-        panel.canChooseFiles = true
-        panel.allowsMultipleSelection = false
-        panel.resolvesAliases = true
-        guard panel.runModal() == .OK, let appURL = panel.url else { return nil }
-
-        let bundle = Bundle(url: appURL)
-        let bundleIdentifier = bundle?.bundleIdentifier
-        let displayName =
-            (bundle?.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
-            ?? (bundle?.object(forInfoDictionaryKey: "CFBundleName") as? String)
-            ?? appURL.deletingPathExtension().lastPathComponent
-        return RouteTarget(
-            id: "service.\(serviceID).\(bundleIdentifier ?? appURL.path)",
-            kind: .application,
-            displayName: displayName,
-            bundleIdentifier: bundleIdentifier,
-            applicationPath: appURL.path
+    private func linkRouterBinding<Value>(_ keyPath: WritableKeyPath<LinkRouterSettings, Value>) -> Binding<Value> {
+        Binding(
+            get: { settingsStore.settings.linkRouter[keyPath: keyPath] },
+            set: { settingsStore.settings.linkRouter[keyPath: keyPath] = $0 }
         )
+    }
+
+    private func enableAllDetected() {
+        let ids = installedDefinitions.map(\.id)
+        settingsStore.settings.linkRouter.enabledNativeAppIDs.formUnion(ids)
+    }
+
+    private func disableAllDetected() {
+        let ids = Set(installedDefinitions.map(\.id))
+        settingsStore.settings.linkRouter.enabledNativeAppIDs.subtract(ids)
     }
 }

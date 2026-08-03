@@ -9,10 +9,10 @@ final class LinkRouterModule: PowerToolModule {
 
     private unowned let environment: AppEnvironment
 
-    var isEnabled: Bool {
-        get { environment.settingsStore.settings.linkRouter.isEnabled }
-        set { environment.settingsStore.settings.linkRouter.isEnabled = newValue }
-    }
+    // Power Tools must keep the module running so it can receive system links,
+    // maintain its menu, and reconcile login-item state. The user-facing
+    // automatic-routing switch controls policy inside LinkRouterCoordinator.
+    var isEnabled: Bool { true }
 
     init(environment: AppEnvironment) {
         self.environment = environment

@@ -3,45 +3,57 @@ import SwiftUI
 
 struct ExtensionsSettingsView: View {
     var body: some View {
-        Form {
-            Section("Share Extension") {
-                Label(
-                    "Use Share → Power Tools Link Router from applications that expose the macOS Share menu.",
-                    systemImage: "square.and.arrow.up")
-                Button("Open Login Items & Extensions Settings") {
-                    openSystemSettings("x-apple.systempreferences:com.apple.LoginItems-Settings.extension")
+        VStack(alignment: .leading, spacing: SettingsDesign.pageSpacing) {
+            SettingsPageHeader(
+                title: "Integrations",
+                subtitle: "Use Power Tools from the Share menu, macOS Services, and URL commands."
+            )
+
+            Form {
+                Section("Share Extension") {
+                    SettingsActionRow(
+                        title: "Share links with Power Tools",
+                        detail: "Use Share → Power Tools Link Router from apps that expose the macOS Share menu.",
+                        systemImage: "square.and.arrow.up",
+                        buttonTitle: "Open Settings"
+                    ) {
+                        openSystemSettings("x-apple.systempreferences:com.apple.LoginItems-Settings.extension")
+                    }
+                }
+
+                Section("Services") {
+                    SettingsActionRow(
+                        title: "Open selected URLs",
+                        detail: "Select text, then use Services → Open URLs with Power Tools or Power Tools Picker.",
+                        systemImage: "text.magnifyingglass",
+                        buttonTitle: "Keyboard Shortcuts"
+                    ) {
+                        openSystemSettings("x-apple.systempreferences:com.apple.Keyboard-Settings.extension?Shortcuts")
+                    }
+                }
+
+                Section("URL Commands") {
+                    commandRow(
+                        title: "Open through rules",
+                        command: "powertools-link://open?url=https%3A%2F%2Fexample.com"
+                    )
+                    commandRow(
+                        title: "Force the picker",
+                        command: "powertools-link://open?prompt=1&url=https%3A%2F%2Fexample.com"
+                    )
+                    commandRow(
+                        title: "Choose an application",
+                        command: "powertools-link://open?app=com.google.Chrome&url=https%3A%2F%2Fexample.com"
+                    )
+                    commandRow(
+                        title: "Clean and copy",
+                        command: "powertools-link://clean?url=https%3A%2F%2Fexample.com%2F%3Futm_source%3Dtest"
+                    )
                 }
             }
-
-            Section("Services") {
-                Label(
-                    "Select text in an application, then use Services → Open URLs with Power Tools or Open URLs with Power Tools Picker.",
-                    systemImage: "text.magnifyingglass")
-                Button("Open Keyboard Shortcuts for Services") {
-                    openSystemSettings("x-apple.systempreferences:com.apple.Keyboard-Settings.extension?Shortcuts")
-                }
-            }
-
-            Section("URL Commands") {
-                commandRow(
-                    title: "Open through rules",
-                    command: "powertools-link://open?url=https%3A%2F%2Fexample.com"
-                )
-                commandRow(
-                    title: "Force the picker",
-                    command: "powertools-link://open?prompt=1&url=https%3A%2F%2Fexample.com"
-                )
-                commandRow(
-                    title: "Choose an application",
-                    command: "powertools-link://open?app=com.google.Chrome&url=https%3A%2F%2Fexample.com"
-                )
-                commandRow(
-                    title: "Clean and copy",
-                    command: "powertools-link://clean?url=https%3A%2F%2Fexample.com%2F%3Futm_source%3Dtest"
-                )
-            }
+            .formStyle(.grouped)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .formStyle(.grouped)
     }
 
     private func commandRow(title: String, command: String) -> some View {

@@ -6,8 +6,7 @@ struct SettingsRootView: View {
     enum Pane: String, CaseIterable, Identifiable {
         case general
         case browsers
-        case rules
-        case apps
+        case routing
         case privacy
         case extensions
         case advanced
@@ -16,9 +15,8 @@ struct SettingsRootView: View {
         var title: String {
             switch self {
             case .general: "General"
-            case .browsers: "Browsers & Profiles"
-            case .rules: "Rules"
-            case .apps: "Native Apps"
+            case .browsers: "Browser Picker"
+            case .routing: "Routing"
             case .privacy: "Privacy"
             case .extensions: "Integrations"
             case .advanced: "Advanced"
@@ -28,8 +26,7 @@ struct SettingsRootView: View {
             switch self {
             case .general: "gearshape"
             case .browsers: "safari"
-            case .rules: "arrow.triangle.branch"
-            case .apps: "app.badge"
+            case .routing: "arrow.triangle.branch"
             case .privacy: "hand.raised"
             case .extensions: "link"
             case .advanced: "slider.horizontal.3"
@@ -37,29 +34,32 @@ struct SettingsRootView: View {
         }
     }
 
-    @State private var selection: Pane? = .general
+    @AppStorage("settings.selectedPane") private var selectedPaneID = Pane.general.rawValue
+    @State private var selectedPane: Pane = {
+        let stored = UserDefaults.standard.string(forKey: "settings.selectedPane")
+        return stored.flatMap(Pane.init(rawValue:)) ?? .general
+    }()
 
     var body: some View {
-        NavigationSplitView {
-            List(Pane.allCases, selection: $selection) { pane in
-                Label(pane.title, systemImage: pane.symbol).tag(pane)
-            }
-            .navigationSplitViewColumnWidth(min: 180, ideal: 210)
-        } detail: {
-            Group {
-                switch selection ?? .general {
-                case .general: GeneralSettingsView()
-                case .browsers: BrowserSettingsView()
-                case .rules: RulesSettingsView()
-                case .apps: NativeAppsSettingsView()
-                case .privacy: PrivacySettingsView()
-                case .extensions: ExtensionsSettingsView()
-                case .advanced: AdvancedSettingsView()
-                }
-            }
-            .padding(20)
+        TabView(selection: $selectedPane) {
+            settingsPane(GeneralSettingsView(), pane: .general)
+            settingsPane(BrowserSettingsView(), pane: .browsers)
+            settingsPane(RoutingSettingsView(), pane: .routing)
+            settingsPane(PrivacySettingsView(), pane: .privacy)
+            settingsPane(ExtensionsSettingsView(), pane: .extensions)
+            settingsPane(AdvancedSettingsView(), pane: .advanced)
         }
-        .navigationTitle("Power Tools")
+        .onChange(of: selectedPane) { _, newValue in
+            selectedPaneID = newValue.rawValue
+        }
+    }
+
+    private func settingsPane<Content: View>(_ content: Content, pane: Pane) -> some View {
+        content
+            .padding(20)
+            .frame(width: 900, height: 620)
+            .tabItem { Label(pane.title, systemImage: pane.symbol) }
+            .tag(pane)
     }
 }
 
@@ -74,95 +74,91 @@ private struct GeneralSettingsView: View {
     @State private var isChangingDefaultBrowser = false
 
     var body: some View {
-        Form {
-            Section("Link Router") {
-                Toggle("Enable Link Router", isOn: linkRouterBinding(\.isEnabled))
-                HStack {
-                    Label(
-                        isDefaultBrowser
+        VStack(alignment: .leading, spacing: SettingsDesign.pageSpacing) {
+            SettingsPageHeader(
+                title: "General",
+                subtitle: "Manage Power Tools, its menu-bar presence, and system link-handler setup."
+            )
+
+            Form {
+                Section("Link Router") {
+                    SettingsToggleRow(
+                        title: "Apply automatic routing",
+                        detail:
+                            "When off, links bypass Rules, App Links, and service destinations and use the primary destination. Privacy cleanup remains active.",
+                        systemImage: "arrow.triangle.branch",
+                        isOn: linkRouterBinding(\.isEnabled)
+                    )
+
+                    SettingsControlRow(
+                        title: isDefaultBrowser
                             ? "Power Tools is the system link handler"
                             : "Power Tools is not the system link handler",
                         systemImage: isDefaultBrowser ? "checkmark.circle.fill" : "exclamationmark.triangle"
-                    )
-                    Spacer()
-                    Button(isChangingDefaultBrowser ? "Waiting for macOS…" : "Make Default") {
-                        makeDefaultBrowser()
-                    }
-                    .disabled(isDefaultBrowser || isChangingDefaultBrowser)
-                }
-            }
-
-            Section("Browser Choices") {
-                RouteTargetPicker(
-                    title: "Primary browser",
-                    selection: linkRouterBinding(\.primaryTarget)
-                )
-                Picker("Browser picker modifier", selection: linkRouterBinding(\.browserPickerModifier)) {
-                    ForEach(BrowserPickerModifier.allCases) { modifier in
-                        Text(modifier.displayName).tag(modifier)
-                    }
-                }
-                Label(
-                    browserPickerHelpText,
-                    systemImage: "rectangle.stack.fill"
-                )
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            }
-
-            Section("Test Routing") {
-                HStack(alignment: .center, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Open an example link")
-                            .font(.headline)
-                        Text(
-                            "Cleans an example.com URL with a tracking parameter, applies your rules, and opens it using the current settings."
-                        )
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Button("Open Test Link") { routeTestLink() }
-                        .accessibilityLabel("Open a test link")
-                }
-                .padding(.vertical, 2)
-            }
-
-            Section("Menu Bar") {
-                Toggle("Show menu bar icon", isOn: linkRouterBinding(\.showMenuBarIcon))
-                Picker("Icon", selection: linkRouterBinding(\.menuBarIconStyle)) {
-                    ForEach(MenuBarIconStyle.allCases) { style in
-                        Text(style.displayName).tag(style)
-                    }
-                }
-                Toggle(
-                    "Launch at login",
-                    isOn: Binding(
-                        get: { settingsStore.settings.linkRouter.launchAtLogin },
-                        set: {
-                            settingsStore.settings.linkRouter.launchAtLogin = $0
-                            environment.linkRouterModule.configureLaunchAtLogin()
+                    ) {
+                        Button(isChangingDefaultBrowser ? "Waiting for macOS…" : "Make Default") {
+                            makeDefaultBrowser()
                         }
-                    ))
-            }
-
-            Section("Setup Guide") {
-                HStack(alignment: .center, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("First-use guide")
-                            .font(.headline)
-                        Text("Review how system links, browser choices, and default-handler setup work.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        .disabled(isDefaultBrowser || isChangingDefaultBrowser)
                     }
-                    Spacer()
-                    Button("Run Guide Again") { WindowPresenter.shared.showOnboarding() }
-                        .accessibilityLabel("Run first-use guide again")
                 }
-                .padding(.vertical, 2)
+
+                Section("Test Routing") {
+                    SettingsControlRow(
+                        title: "Open an example link",
+                        detail:
+                            "Cleans an example.com URL with a tracking parameter, applies your rules, and opens it using the current settings.",
+                        systemImage: "checkmark.circle"
+                    ) {
+                        Button("Open Test Link") { routeTestLink() }
+                            .accessibilityLabel("Open a test link")
+                    }
+                }
+
+                Section("Menu Bar") {
+                    SettingsToggleRow(
+                        title: "Show menu bar icon",
+                        systemImage: "menubar.rectangle",
+                        isOn: linkRouterBinding(\.showMenuBarIcon)
+                    )
+                    SettingsControlRow(
+                        title: "Menu bar icon",
+                        systemImage: "app.dashed"
+                    ) {
+                        Picker("Menu bar icon", selection: linkRouterBinding(\.menuBarIconStyle)) {
+                            ForEach(MenuBarIconStyle.allCases) { style in
+                                Text(style.displayName).tag(style)
+                            }
+                        }
+                        .settingsAccessoryPicker()
+                    }
+                    SettingsToggleRow(
+                        title: "Launch at login",
+                        systemImage: "power",
+                        isOn: Binding(
+                            get: { settingsStore.settings.linkRouter.launchAtLogin },
+                            set: {
+                                settingsStore.settings.linkRouter.launchAtLogin = $0
+                                environment.linkRouterModule.configureLaunchAtLogin()
+                            }
+                        )
+                    )
+                }
+
+                Section("Setup Guide") {
+                    SettingsControlRow(
+                        title: "First-use guide",
+                        detail: "Review how system links, browser choices, and default-handler setup work.",
+                        systemImage: "questionmark.circle"
+                    ) {
+                        Button("Run Guide Again") { WindowPresenter.shared.showOnboarding() }
+                            .accessibilityLabel("Run first-use guide again")
+                    }
+                }
             }
+            .formStyle(.grouped)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .formStyle(.grouped)
     }
 
     private func linkRouterBinding<Value>(_ keyPath: WritableKeyPath<LinkRouterSettings, Value>) -> Binding<Value> {
@@ -191,13 +187,6 @@ private struct GeneralSettingsView: View {
         Task { await environment.router.route(request) }
     }
 
-    private var browserPickerHelpText: String {
-        let modifier = settingsStore.settings.linkRouter.browserPickerModifier
-        if modifier == .disabled {
-            return "The browser-picker modifier is disabled. Rules can still open the picker for matching links."
-        }
-        return "Hold \(modifier.displayName) while opening a link to choose from every browser shown in the picker."
-    }
 }
 
 struct RouteTargetPicker: View {

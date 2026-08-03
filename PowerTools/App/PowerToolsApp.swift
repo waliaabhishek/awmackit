@@ -11,7 +11,7 @@ struct PowerToolsApp: App {
                 .environmentObject(environment.settingsStore)
                 .environmentObject(environment.browserCatalog)
                 .environmentObject(environment.historyStore)
-                .frame(minWidth: 780, minHeight: 540)
         }
+        .windowResizability(.contentSize)
     }
 }

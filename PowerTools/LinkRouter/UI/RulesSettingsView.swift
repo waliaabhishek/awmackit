@@ -7,15 +7,22 @@ struct RulesSettingsView: View {
     @State private var presentationMode: RulesPresentationMode = .automations
 
     var body: some View {
-        VStack(spacing: 12) {
-            Picker("Rules view", selection: $presentationMode) {
-                ForEach(RulesPresentationMode.allCases) { mode in
-                    Text(mode.title).tag(mode)
+        VStack(alignment: .leading, spacing: SettingsDesign.pageSpacing) {
+            HStack(alignment: .center, spacing: 20) {
+                SettingsPageHeader(
+                    title: "Rules & Exceptions",
+                    subtitle: "Create simple automations or use advanced conditions for precise routing."
+                )
+
+                Picker("Rules view", selection: $presentationMode) {
+                    ForEach(RulesPresentationMode.allCases) { mode in
+                        Text(mode.title).tag(mode)
+                    }
                 }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(width: 280)
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .frame(maxWidth: 360)
 
             Group {
                 switch presentationMode {
@@ -51,7 +58,7 @@ private struct AdvancedRulesSettingsView: View {
         VStack(spacing: 10) {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Advanced Rules").font(.title2.bold())
+                    Text("Advanced Rules").font(.headline)
                     Text("Condition groups, URL rewrites, JavaScript, and exact priority.")
                         .foregroundStyle(.secondary)
                 }

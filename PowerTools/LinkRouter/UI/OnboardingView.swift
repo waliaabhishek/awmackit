@@ -112,21 +112,32 @@ struct OnboardingView: View {
                 "Choose the browser you normally use. Hold the picker modifier while opening any link whenever you want another browser."
             )
             .foregroundStyle(.secondary)
-            Form {
-                RouteTargetPicker(
-                    title: "Primary browser",
-                    selection: linkRouterBinding(\.primaryTarget)
-                )
-                Picker("Browser picker modifier", selection: linkRouterBinding(\.browserPickerModifier)) {
-                    ForEach(BrowserPickerModifier.allCases) { modifier in
-                        Text(modifier.displayName).tag(modifier)
-                    }
+            SettingsSectionCard("Default Destination") {
+                SettingsControlRow(title: "Primary browser", systemImage: "safari") {
+                    RouteTargetPicker(
+                        title: "Primary browser",
+                        selection: linkRouterBinding(\.primaryTarget)
+                    )
+                    .settingsAccessoryPicker()
                 }
-                Text(browserPickerHelpText)
+
+                Divider()
+                    .padding(.leading, SettingsDesign.iconColumnWidth + SettingsDesign.rowSpacing)
+
+                SettingsControlRow(title: "Browser picker shortcut", systemImage: "keyboard") {
+                    Picker("Browser picker shortcut", selection: linkRouterBinding(\.browserPickerModifier)) {
+                        ForEach(BrowserPickerModifier.allCases) { modifier in
+                            Text(modifier.displayName).tag(modifier)
+                        }
+                    }
+                    .settingsAccessoryPicker()
+                }
+
+                Label(browserPickerHelpText, systemImage: "info.circle")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .padding(.leading, SettingsDesign.iconColumnWidth + SettingsDesign.rowSpacing)
             }
-            .formStyle(.grouped)
         }
     }
 

@@ -8,100 +8,129 @@ struct AdvancedSettingsView: View {
     @State private var pendingError: Error?
 
     var body: some View {
-        Form {
-            if let issue = settingsStore.loadIssue {
-                Section("Settings Recovery") {
-                    Label(issue.message, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
-                    HStack {
-                        Button("Reveal Original File") {
-                            NSWorkspace.shared.activateFileViewerSelecting([issue.fileURL])
-                        }
-                        Button("Back Up and Reset…", role: .destructive) {
-                            backUpAndResetSettings()
+        VStack(alignment: .leading, spacing: SettingsDesign.pageSpacing) {
+            SettingsPageHeader(
+                title: "Advanced",
+                subtitle: "Tune picker behavior, diagnostics, portability, and recovery options."
+            )
+
+            Form {
+                if let issue = settingsStore.loadIssue {
+                    Section("Settings Recovery") {
+                        Label(issue.message, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        HStack {
+                            Button("Reveal Original File") {
+                                NSWorkspace.shared.activateFileViewerSelecting([issue.fileURL])
+                            }
+                            Button("Back Up and Reset…", role: .destructive) {
+                                backUpAndResetSettings()
+                            }
                         }
                     }
                 }
-            }
 
-            Section("Picker") {
-                Toggle("Show the URL in the picker", isOn: setting(\.promptShowsURL))
-                Toggle(
-                    "Reveal Copy and Share actions while Option is held", isOn: setting(\.optionRevealsPromptActions))
-                Toggle(
-                    "Control opens the selected browser in the background",
-                    isOn: setting(\.openInBackgroundWhenControlHeld))
-                Toggle("Remember picker position", isOn: setting(\.preservePromptPosition))
+                Section("Picker") {
+                    SettingsToggleRow(
+                        title: "Show the URL in the picker",
+                        systemImage: "link",
+                        isOn: setting(\.promptShowsURL)
+                    )
+                    SettingsToggleRow(
+                        title: "Reveal Copy and Share while Option is held",
+                        systemImage: "option",
+                        isOn: setting(\.optionRevealsPromptActions)
+                    )
+                    SettingsToggleRow(
+                        title: "Control opens the browser in the background",
+                        systemImage: "control",
+                        isOn: setting(\.openInBackgroundWhenControlHeld)
+                    )
+                    SettingsToggleRow(
+                        title: "Remember picker position",
+                        systemImage: "rectangle.and.hand.point.up.left",
+                        isOn: setting(\.preservePromptPosition)
+                    )
                     .help("The picker can be dragged by its background; its last position is restored across launches.")
-            }
-
-            Section("Browser Launching") {
-                Toggle(
-                    "Use Accessibility automation for Safari private windows",
-                    isOn: setting(\.safariPrivateUsesAccessibility))
-                Text(
-                    "Safari does not expose profile selection to third-party applications. Private Safari windows therefore require UI automation and Accessibility permission."
-                )
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            }
-
-            Section("Diagnostics") {
-                Picker("Routing log", selection: setting(\.logLevel)) {
-                    ForEach(RoutingLogLevel.allCases) { level in
-                        Text(level.displayName).tag(level)
-                    }
                 }
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("\(environment.browserCatalog.allTargets.count) launch targets found")
-                        .foregroundStyle(.secondary)
-                    HStack {
-                        Button("Open Routing Log") { WindowPresenter.shared.showRoutingLog() }
-                        Button("Refresh Browser Catalog") {
-                            Task { await environment.browserCatalog.refresh() }
+
+                Section("Browser Launching") {
+                    SettingsToggleRow(
+                        title: "Automate Safari private windows",
+                        detail:
+                            "Safari requires Accessibility permission because it does not expose private-window selection to third-party apps.",
+                        systemImage: "hand.raised",
+                        isOn: setting(\.safariPrivateUsesAccessibility)
+                    )
+                }
+
+                Section("Diagnostics") {
+                    SettingsControlRow(title: "Routing log", systemImage: "doc.text.magnifyingglass") {
+                        Picker("Routing log", selection: setting(\.logLevel)) {
+                            ForEach(RoutingLogLevel.allCases) { level in
+                                Text(level.displayName).tag(level)
+                            }
                         }
+                        .settingsAccessoryPicker()
                     }
-                }
-            }
-
-            Section("Settings Portability") {
-                VStack(alignment: .leading, spacing: 10) {
-                    LabeledContent("All settings") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("\(environment.browserCatalog.allTargets.count) launch targets found")
+                            .foregroundStyle(.secondary)
                         HStack {
-                            Button("Export…") { exportSettings() }
-                            Button("Import…") { importSettings() }
-                        }
-                    }
-                    LabeledContent("Rules only") {
-                        HStack {
-                            Button("Export…") { exportRules() }
-                            Button("Import…") { importRules() }
+                            Button("Open Routing Log") { WindowPresenter.shared.showRoutingLog() }
+                            Button("Refresh Browser Catalog") {
+                                Task { await environment.browserCatalog.refresh() }
+                            }
                         }
                     }
                 }
-                Text(
-                    "Exports are human-readable JSON and include browser target identifiers, rules, cleaning preferences, and module configuration. History and diagnostic logs are not exported."
-                )
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            }
 
-            Section("Reset") {
-                Button("Reset Link Router Settings", role: .destructive) {
-                    let alert = NSAlert()
-                    alert.messageText = "Reset Link Router Settings?"
-                    alert.informativeText =
-                        "This removes all rules and restores the default Link Router configuration. History is kept."
-                    alert.addButton(withTitle: "Reset")
-                    alert.addButton(withTitle: "Cancel")
-                    if alert.runModal() == .alertFirstButtonReturn {
-                        settingsStore.settings.linkRouter = LinkRouterSettings()
-                        environment.linkRouterModule.configureLaunchAtLogin()
+                Section("Settings Portability") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        LabeledContent("All settings") {
+                            HStack {
+                                Button("Export…") { exportSettings() }
+                                Button("Import…") { importSettings() }
+                            }
+                        }
+                        LabeledContent("Rules only") {
+                            HStack {
+                                Button("Export…") { exportRules() }
+                                Button("Import…") { importRules() }
+                            }
+                        }
+                    }
+                    Text(
+                        "Exports are human-readable JSON and include browser target identifiers, rules, cleaning preferences, and module configuration. History and diagnostic logs are not exported."
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+
+                Section("Reset") {
+                    SettingsControlRow(
+                        title: "Restore routing defaults",
+                        detail: "Removes all rules and restores Link Router settings. History is kept.",
+                        systemImage: "arrow.counterclockwise"
+                    ) {
+                        Button("Reset…", role: .destructive) {
+                            let alert = NSAlert()
+                            alert.messageText = "Reset Link Router Settings?"
+                            alert.informativeText =
+                                "This removes all rules and restores the default Link Router configuration. History is kept."
+                            alert.addButton(withTitle: "Reset")
+                            alert.addButton(withTitle: "Cancel")
+                            if alert.runModal() == .alertFirstButtonReturn {
+                                settingsStore.settings.linkRouter = LinkRouterSettings()
+                                environment.linkRouterModule.configureLaunchAtLogin()
+                            }
+                        }
                     }
                 }
             }
+            .formStyle(.grouped)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .formStyle(.grouped)
         .alert(
             "Operation Failed",
             isPresented: Binding(

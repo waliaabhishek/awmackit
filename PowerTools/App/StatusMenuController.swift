@@ -17,13 +17,21 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
     func start() {
         environment.settingsStore.$settings
-            .sink { [weak self] _ in self?.reconcileStatusItem() }
+            .sink { [weak self] _ in
+                DispatchQueue.main.async {
+                    self?.reconcileStatusItem()
+                }
+            }
             .store(in: &cancellables)
         environment.browserCatalog.$browsers
-            .sink { [weak self] _ in self?.updateButtonAppearance() }
+            .sink { [weak self] _ in
+                DispatchQueue.main.async { self?.updateButtonAppearance() }
+            }
             .store(in: &cancellables)
         environment.browserCatalog.$profiles
-            .sink { [weak self] _ in self?.updateButtonAppearance() }
+            .sink { [weak self] _ in
+                DispatchQueue.main.async { self?.updateButtonAppearance() }
+            }
             .store(in: &cancellables)
         reconcileStatusItem()
     }
@@ -39,32 +47,35 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         rebuildMenu()
     }
 
-    private func reconcileStatusItem() {
-        if environment.settingsStore.settings.linkRouter.showMenuBarIcon {
-            ensureStatusItem()
+    private func reconcileStatusItem(using settings: LinkRouterSettings? = nil) {
+        let settings = settings ?? environment.settingsStore.settings.linkRouter
+        if settings.showMenuBarIcon {
+            ensureStatusItem(using: settings)
         } else if let statusItem {
             NSStatusBar.system.removeStatusItem(statusItem)
             self.statusItem = nil
         }
-        updateButtonAppearance()
+        updateButtonAppearance(using: settings)
     }
 
-    private func ensureStatusItem() {
+    private func ensureStatusItem(using settings: LinkRouterSettings? = nil) {
         guard statusItem == nil else { return }
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.menu = menu
         item.button?.toolTip = "Power Tools — Link Router"
         statusItem = item
-        updateButtonAppearance()
+        updateButtonAppearance(using: settings)
     }
 
-    private func updateButtonAppearance() {
+    private func updateButtonAppearance(using settings: LinkRouterSettings? = nil) {
         guard let button = statusItem?.button else { return }
-        let settings = environment.settingsStore.settings.linkRouter
+        let settings = settings ?? environment.settingsStore.settings.linkRouter
         switch settings.menuBarIconStyle {
         case .activeBrowser:
             let target = resolvePrimaryTarget(settings.primaryTarget)
-            let image = environment.browserCatalog.icon(for: target)
+            let image =
+                (environment.browserCatalog.icon(for: target).copy() as? NSImage)
+                ?? environment.browserCatalog.icon(for: target)
             image.size = NSSize(width: 18, height: 18)
             image.isTemplate = false
             button.image = image
@@ -84,15 +95,24 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         menu.removeAllItems()
         let settings = environment.settingsStore.settings.linkRouter
 
-        let enabled = NSMenuItem(title: "Link Router Enabled", action: #selector(toggleEnabled(_:)), keyEquivalent: "")
+        let enabled = NSMenuItem(
+            title: "Automatic Routing Enabled",
+            action: #selector(toggleEnabled(_:)),
+            keyEquivalent: ""
+        )
         enabled.target = self
         enabled.state = settings.isEnabled ? .on : .off
         menu.addItem(enabled)
 
+        let isDefaultBrowser = DefaultBrowserManager().isPowerToolsDefaultBrowser
         let defaultItem = NSMenuItem(
-            title: "Use Power Tools as Default Browser", action: #selector(makeDefaultBrowser(_:)), keyEquivalent: "")
-        defaultItem.target = self
-        defaultItem.state = DefaultBrowserManager().isPowerToolsDefaultBrowser ? .on : .off
+            title: isDefaultBrowser ? "Power Tools Is the Default Browser" : "Use Power Tools as Default Browser",
+            action: isDefaultBrowser ? nil : #selector(makeDefaultBrowser(_:)),
+            keyEquivalent: ""
+        )
+        defaultItem.target = isDefaultBrowser ? nil : self
+        defaultItem.state = isDefaultBrowser ? .on : .off
+        defaultItem.isEnabled = !isDefaultBrowser
         menu.addItem(defaultItem)
         menu.addItem(.separator())
 
@@ -176,7 +196,9 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
             item.keyEquivalentModifierMask = [.option]
         }
         if target.kind != .prompt {
-            let image = environment.browserCatalog.icon(for: target)
+            let image =
+                (environment.browserCatalog.icon(for: target).copy() as? NSImage)
+                ?? environment.browserCatalog.icon(for: target)
             image.size = NSSize(width: 16, height: 16)
             item.image = image
         }
@@ -204,7 +226,9 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     @objc private func makeDefaultBrowser(_ sender: Any?) {
         Task { @MainActor in
             do {
-                try await DefaultBrowserManager().setPowerToolsAsDefaultBrowser()
+                let manager = DefaultBrowserManager()
+                guard !manager.isPowerToolsDefaultBrowser else { return }
+                try await manager.setPowerToolsAsDefaultBrowser()
             } catch {
                 NSAlert(error: error).runModal()
             }

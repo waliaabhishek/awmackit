@@ -39,6 +39,16 @@ final class BrowserCatalog: ObservableObject {
 
     var allTargets: [RouteTarget] { normalTargets + privateTargets }
 
+    func isSuggestedPickerTarget(_ target: RouteTarget) -> Bool {
+        guard target.kind == .application,
+            target.openMode == .normal,
+            let bundleIdentifier = target.bundleIdentifier
+        else {
+            return false
+        }
+        return BrowserFamilyCatalog.isRecognizedBrowser(bundleIdentifier)
+    }
+
     func loadIfNeeded() async {
         if browsers.isEmpty { await refresh() }
     }
@@ -165,6 +175,12 @@ final class BrowserCatalog: ObservableObject {
 }
 
 enum BrowserFamilyCatalog {
+    static func isRecognizedBrowser(_ bundleIdentifier: String) -> Bool {
+        bundleIdentifier == "com.apple.Safari"
+            || chromiumBundleIDs.contains(bundleIdentifier)
+            || firefoxBundleIDs.contains(bundleIdentifier)
+    }
+
     static let chromiumBundleIDs: Set<String> = [
         "com.google.Chrome", "com.google.Chrome.beta", "com.google.Chrome.canary", "com.google.Chrome.dev",
         "com.microsoft.edgemac", "com.microsoft.edgemac.Beta", "com.microsoft.edgemac.Canary",

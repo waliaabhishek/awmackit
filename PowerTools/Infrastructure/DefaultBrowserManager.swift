@@ -39,6 +39,7 @@ struct DefaultBrowserManager {
     }
 
     func setPowerToolsAsDefaultBrowser() async throws {
+        guard !isPowerToolsDefaultBrowser else { return }
         guard let bundleIdentifier = Bundle.main.bundleIdentifier else {
             throw DefaultBrowserError.missingBundleIdentifier
         }

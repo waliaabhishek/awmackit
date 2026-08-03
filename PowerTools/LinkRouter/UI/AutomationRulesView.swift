@@ -125,7 +125,7 @@ struct AutomationRulesView: View {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Automations")
-                        .font(.title2.bold())
+                        .font(.headline)
                     Text("Create useful link behavior without writing patterns or scripts.")
                         .foregroundStyle(.secondary)
                 }

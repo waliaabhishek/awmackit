@@ -50,7 +50,7 @@ final class LinkRouterCoordinator {
             if !settings.isEnabled {
                 logger.log(
                     .warning, stage: "Router",
-                    "Link Router is disabled; forwarding URLs to the configured primary target without rules.")
+                    "Routing rules and App Links are paused; forwarding URLs to the configured primary target.")
                 let request = RouteRequest(
                     urls: urls,
                     sourceApplication: source,
@@ -457,8 +457,13 @@ final class LinkRouterCoordinator {
 
     private func promptTargets(settings: LinkRouterSettings) -> [RouteTarget] {
         let discovered = browserCatalog.allTargets
-        let presentationByID = Dictionary(uniqueKeysWithValues: settings.browserPresentation.map { ($0.id, $0) })
-        let visible = discovered.filter { presentationByID[$0.id]?.isShownInPrompt ?? true }
+        let presentationByID = settings.browserPresentation.reduce(into: [String: BrowserPresentation]()) {
+            result, presentation in
+            result[presentation.id] = presentation
+        }
+        let visible = discovered.filter {
+            presentationByID[$0.id]?.isShownInPrompt ?? browserCatalog.isSuggestedPickerTarget($0)
+        }
         let sorted = visible.sorted {
             let lhs = presentationByID[$0.id]?.order ?? Int.max
             let rhs = presentationByID[$1.id]?.order ?? Int.max

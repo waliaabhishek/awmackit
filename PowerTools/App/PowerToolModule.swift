@@ -5,7 +5,7 @@ protocol PowerToolModule: AnyObject {
     var id: String { get }
     var displayName: String { get }
     var symbolName: String { get }
-    var isEnabled: Bool { get set }
+    var isEnabled: Bool { get }
 
     func start()
     func stop()

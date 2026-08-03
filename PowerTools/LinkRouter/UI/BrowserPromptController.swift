@@ -61,12 +61,10 @@ final class BrowserPromptController {
         guard continuation == nil, panel == nil, !pendingPrompts.isEmpty else { return }
         let request = pendingPrompts.removeFirst()
         continuation = request.continuation
-        let shortcutByID: [String: String] = Dictionary(
-            uniqueKeysWithValues: request.presentation.compactMap { item -> (String, String)? in
-                guard let shortcut = item.promptShortcut?.lowercased(), !shortcut.isEmpty else { return nil }
-                return (item.id, shortcut)
-            }
-        )
+        let shortcutByID: [String: String] = request.presentation.reduce(into: [:]) { result, item in
+            guard let shortcut = item.promptShortcut?.lowercased(), !shortcut.isEmpty else { return }
+            result[item.id] = shortcut
+        }
         let model = BrowserPromptViewModel(
             url: request.url,
             targets: request.targets,
