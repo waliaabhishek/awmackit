@@ -44,7 +44,8 @@ final class ShortURLResolver: @unchecked Sendable {
     func resolve(
         _ input: URL,
         customShortenerHosts: Set<String>,
-        resolveUnknownRedirects: Bool
+        resolveUnknownRedirects: Bool,
+        maximumRedirects: Int
     ) async throws -> URL {
         guard input.absoluteString.utf8.count <= 16_384,
             let scheme = input.scheme?.lowercased(),
@@ -63,7 +64,10 @@ final class ShortURLResolver: @unchecked Sendable {
 
         let headResult: URL?
         do {
-            headResult = try await finalURL(for: request(url: input, method: "HEAD"))
+            headResult = try await finalURL(
+                for: request(url: input, method: "HEAD"),
+                maximumRedirects: maximumRedirects
+            )
         } catch let error as ResolverError {
             throw error
         } catch {
@@ -74,7 +78,10 @@ final class ShortURLResolver: @unchecked Sendable {
         if let headResult, headResult != input {
             final = headResult
         } else {
-            final = try await finalURL(for: request(url: input, method: "GET"))
+            final = try await finalURL(
+                for: request(url: input, method: "GET"),
+                maximumRedirects: maximumRedirects
+            )
         }
 
         await cache.insert(final, for: input)
@@ -92,8 +99,12 @@ final class ShortURLResolver: @unchecked Sendable {
         return request
     }
 
-    private func finalURL(for request: URLRequest) async throws -> URL {
-        let delegate = RedirectGuard(hostValidator: hostValidator, maximumRedirects: 10)
+    private func finalURL(for request: URLRequest, maximumRedirects: Int) async throws -> URL {
+        let boundedRedirectLimit = min(max(maximumRedirects, 1), 50)
+        let delegate = RedirectGuard(
+            hostValidator: hostValidator,
+            maximumRedirects: boundedRedirectLimit
+        )
         let (bytes, response) = try await session.bytes(for: request, delegate: delegate)
         // `bytes(for:)` returns as soon as response headers arrive. Cancelling here avoids
         // buffering or downloading a body even when a server ignores the Range header.

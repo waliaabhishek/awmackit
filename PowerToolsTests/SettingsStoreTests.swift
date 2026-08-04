@@ -67,6 +67,42 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(store.settings.linkRouter.historyLimit, 321)
     }
 
+    func testRedirectLimitDefaultsToTenWhenMissingFromStoredSettings() async throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let settingsURL = directory.appendingPathComponent("settings.json")
+        let encodedDefaults = try JSONEncoder().encode(PowerToolsSettings())
+        var object = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encodedDefaults) as? [String: Any]
+        )
+        var linkRouter = try XCTUnwrap(object["linkRouter"] as? [String: Any])
+        linkRouter["shortURLRedirectLimit"] = nil
+        object["linkRouter"] = linkRouter
+        try JSONSerialization.data(withJSONObject: object).write(to: settingsURL)
+
+        let store = SettingsStore(settingsURL: settingsURL)
+        await store.loadIfNeeded()
+
+        XCTAssertNil(store.loadIssue)
+        XCTAssertEqual(store.settings.linkRouter.shortURLRedirectLimit, 10)
+    }
+
+    func testRedirectLimitPersists() async throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let settingsURL = directory.appendingPathComponent("settings.json")
+        let store = SettingsStore(settingsURL: settingsURL)
+        await store.loadIfNeeded()
+        store.settings.linkRouter.shortURLRedirectLimit = 17
+        try await store.saveImmediately()
+
+        let reloadedStore = SettingsStore(settingsURL: settingsURL)
+        await reloadedStore.loadIfNeeded()
+
+        XCTAssertNil(reloadedStore.loadIssue)
+        XCTAssertEqual(reloadedStore.settings.linkRouter.shortURLRedirectLimit, 17)
+    }
+
     func testOversizedSettingsRemainWriteProtected() async throws {
         let directory = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }

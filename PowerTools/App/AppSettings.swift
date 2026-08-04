@@ -72,6 +72,7 @@ struct LinkRouterSettings: Codable, Hashable, Sendable {
     var unwrapEmbeddedRedirects = true
     var expandShortURLs = true
     var resolveUnknownRedirects = false
+    var shortURLRedirectLimit = 10
     var customShortenerHosts: [String] = []
     var additionalTrackingParameters: [String] = []
     var allowedTrackingParameters: [String] = []

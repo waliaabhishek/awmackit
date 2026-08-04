@@ -384,6 +384,7 @@ final class LinkRouterCoordinator {
 
         let customHosts = Set(settings.customShortenerHosts)
         let resolveUnknown = settings.resolveUnknownRedirects
+        let maximumRedirects = settings.shortURLRedirectLimit
         let concurrencyLimit = min(4, urls.count)
         var results = Array<ExpansionResult?>(repeating: nil, count: urls.count)
 
@@ -398,7 +399,8 @@ final class LinkRouterCoordinator {
                         let expanded = try await shortURLResolver.resolve(
                             url,
                             customShortenerHosts: customHosts,
-                            resolveUnknownRedirects: resolveUnknown
+                            resolveUnknownRedirects: resolveUnknown,
+                            maximumRedirects: maximumRedirects
                         )
                         return (index, ExpansionResult(url: expanded, errorMessage: nil))
                     } catch {
@@ -418,7 +420,8 @@ final class LinkRouterCoordinator {
                         let expanded = try await shortURLResolver.resolve(
                             url,
                             customShortenerHosts: customHosts,
-                            resolveUnknownRedirects: resolveUnknown
+                            resolveUnknownRedirects: resolveUnknown,
+                            maximumRedirects: maximumRedirects
                         )
                         return (index, ExpansionResult(url: expanded, errorMessage: nil))
                     } catch {
