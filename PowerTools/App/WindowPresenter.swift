@@ -9,12 +9,14 @@ final class WindowPresenter {
     private var windows: [String: NSWindow] = [:]
 
     func showSettings() {
+        ApplicationActivationController.shared.prepareForUserWindow()
         guard let applicationMenu = NSApp.mainMenu?.items.first?.submenu,
             let settingsMenuItemIndex = applicationMenu.items.firstIndex(where: {
                 $0.keyEquivalent == ","
                     && $0.keyEquivalentModifierMask.contains(.command)
             })
         else {
+            ApplicationActivationController.shared.presentationFailed()
             assertionFailure("SwiftUI did not install the Settings menu item")
             NSSound.beep()
             return
@@ -70,6 +72,7 @@ final class WindowPresenter {
         size: NSSize,
         rootView: () -> AnyView
     ) {
+        ApplicationActivationController.shared.prepareForUserWindow()
         if let existing = windows[id] {
             existing.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)

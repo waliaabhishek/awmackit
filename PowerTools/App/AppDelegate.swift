@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var isFinishingTermination = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        ApplicationActivationController.shared.start()
         NSApp.servicesProvider = servicesProvider
         NSUpdateDynamicServices()
 
