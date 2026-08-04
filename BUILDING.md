@@ -135,7 +135,42 @@ Run:
 
 On macOS with XcodeGen installed, this also performs an unsigned Xcode build. The CI workflow performs the same generation and build on a macOS runner.
 
-## 8. Archive
+## 8. Publish an unsigned preview
+
+Unsigned previews are intentionally separate from production releases. Push a
+tag such as:
+
+```bash
+git tag v0.1.0-preview.1
+git push origin v0.1.0-preview.1
+```
+
+Tags matching `v*.*.*-preview.*` trigger the unsigned-preview release workflow.
+The workflow validates the exact tag format, runs the complete test/build
+pipeline, creates an ad-hoc-signed universal app, verifies its signatures and
+bundle versions, and publishes a GitHub prerelease with a SHA-256 checksum.
+The numeric portion of the tag becomes the Apple-compliant bundle version, so
+`v0.1.0-preview.1` produces `CFBundleShortVersionString` `0.1.0`; the preview
+sequence remains in the tag, release title, and asset name.
+
+The release and its asset names explicitly say **Unsigned Preview**. These builds
+are not Developer ID signed or notarized, so Gatekeeper may prevent normal
+installation. They are intended for evaluation and testing rather than
+production distribution.
+
+To exercise the same packaging locally without publishing a release:
+
+```bash
+./Scripts/package-unsigned-preview.sh 0.1.0-preview.1 1
+```
+
+The ZIP and checksum are written under `build/releases/`.
+
+Repository administrators can add required reviewers to the
+`unsigned-preview-release` GitHub environment when release tags should require
+manual approval before the runner starts.
+
+## 9. Create a signed archive
 
 Set your Apple Team ID and run:
 
@@ -151,7 +186,7 @@ build/PowerTools.xcarchive
 
 Distribution outside the Mac App Store still requires Developer ID signing and notarization. Those credentials are intentionally not embedded in this repository.
 
-## 9. Direct-distribution design
+## 10. Direct-distribution design
 
 The host application is not sandboxed because it discovers browser profiles and PWAs by reading browser support directories. The embedded Safari and Share extensions are sandboxed.
 

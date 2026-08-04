@@ -1,0 +1,77 @@
+name: Unsigned Preview Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*-preview.*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: unsigned-preview-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Validate and publish unsigned preview
+    runs-on: macos-15
+    timeout-minutes: 60
+    environment: unsigned-preview-release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Validate preview tag
+        id: version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-preview\.[0-9]+$ ]]; then
+            echo "Expected a tag such as v0.1.0-preview.1; received: $RELEASE_TAG" >&2
+            exit 1
+          fi
+
+          printf 'version=%s\n' "${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
+          printf 'build_number=%s\n' "$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Validate, test, generate, and build
+        run: ./Scripts/validate.sh
+
+      - name: Package unsigned preview
+        env:
+          PREVIEW_VERSION: ${{ steps.version.outputs.version }}
+          PREVIEW_BUILD_NUMBER: ${{ steps.version.outputs.build_number }}
+        run: ./Scripts/package-unsigned-preview.sh "$PREVIEW_VERSION" "$PREVIEW_BUILD_NUMBER"
+
+      - name: Create GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIEW_VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          asset_name="PowerTools-v${PREVIEW_VERSION}-macos-universal-unsigned-preview.zip"
+          asset_path="build/releases/$asset_name"
+          checksum_path="$asset_path.sha256"
+          release_notes='> [!WARNING]
+          > This is an unsigned preview. The app is ad-hoc signed, not Developer ID signed, and not notarized by Apple. It is intended for evaluation and testing; macOS Gatekeeper may prevent normal installation.
+
+          - Requires macOS 14 or later.
+          - Contains universal arm64 and x86_64 executables.
+          - The attached SHA-256 file can be used to verify the download.'
+
+          gh release create "$RELEASE_TAG" \
+            "$asset_path#PowerTools for macOS (unsigned preview)" \
+            "$checksum_path#SHA-256 checksum" \
+            --verify-tag \
+            --prerelease \
+            --latest=false \
+            --title "PowerTools $RELEASE_TAG — Unsigned Preview" \
+            --generate-notes \
+            --notes "$release_notes"

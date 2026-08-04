@@ -64,6 +64,11 @@ In Xcode:
 
 Detailed signing, extension, and archive steps are in [BUILDING.md](BUILDING.md).
 
+Version tags ending in `-preview.N`, such as `v0.1.0-preview.1`, publish a
+clearly labeled, ad-hoc-signed GitHub prerelease for evaluation. These preview
+builds are not Developer ID signed or notarized. See [BUILDING.md](BUILDING.md)
+for the release contract and local packaging command.
+
 ### Quick local test build
 
 To produce an ad-hoc-signed build that runs locally without configuring an
