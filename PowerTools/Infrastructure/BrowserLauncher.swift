@@ -104,6 +104,28 @@ final class BrowserLauncher {
             return
         }
 
+        // NSWorkspace's URL-opening API reliably launches these browsers from a
+        // cold start, but some Chromium/Firefox-family builds only reactivate an
+        // already-running process and silently drop the URLs. Start a short-lived
+        // command-line instance in that case; the browser's singleton handoff
+        // forwards the URLs to the existing process.
+        if Self.usesCommandLineHandoff(bundleIdentifier: bundleID),
+            !NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).isEmpty
+        {
+            let arguments: [String]
+            if BrowserFamilyCatalog.firefoxBundleIDs.contains(bundleID) {
+                arguments = urls.flatMap { ["-new-tab", $0.absoluteString] }
+            } else {
+                arguments = urls.map(\.absoluteString)
+            }
+            try await handOffToRunningBrowser(
+                at: appURL,
+                arguments: arguments,
+                displayName: target.displayName
+            )
+            return
+        }
+
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = !inBackground
         configuration.addsToRecentItems = false
@@ -226,6 +248,36 @@ final class BrowserLauncher {
                 }
             }
         }
+    }
+
+    private func handOffToRunningBrowser(
+        at applicationURL: URL,
+        arguments: [String],
+        displayName: String
+    ) async throws {
+        guard let executableURL = Bundle(url: applicationURL)?.executableURL else {
+            throw LaunchError.executableNotFound(displayName)
+        }
+        let output = try await AsyncProcessRunner.run(
+            executableURL: executableURL,
+            arguments: arguments,
+            timeout: 8
+        )
+        guard output.terminationStatus == 0 else {
+            let standardError = String(decoding: output.standardError, as: UTF8.self)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let standardOutput = String(decoding: output.standardOutput, as: UTF8.self)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let message = standardError.isEmpty ? standardOutput : standardError
+            throw LaunchError.processFailed(
+                message.isEmpty ? "The browser handoff exited with status \(output.terminationStatus)." : message
+            )
+        }
+    }
+
+    private static func usesCommandLineHandoff(bundleIdentifier: String) -> Bool {
+        BrowserFamilyCatalog.chromiumBundleIDs.contains(bundleIdentifier)
+            || BrowserFamilyCatalog.firefoxBundleIDs.contains(bundleIdentifier)
     }
 
     private func openSafariPrivate(_ urls: [URL]) async throws {
