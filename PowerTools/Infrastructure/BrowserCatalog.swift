@@ -25,9 +25,7 @@ final class BrowserCatalog: ObservableObject {
     var privateTargets: [RouteTarget] {
         (browsers.map(\.routeTarget) + profiles.map(\.routeTarget)).compactMap { target in
             guard let bundleIdentifier = target.bundleIdentifier,
-                bundleIdentifier == "com.apple.Safari"
-                    || BrowserFamilyCatalog.chromiumBundleIDs.contains(bundleIdentifier)
-                    || BrowserFamilyCatalog.firefoxBundleIDs.contains(bundleIdentifier)
+                BrowserFamilyCatalog.supportsPrivateWindows(bundleIdentifier)
             else { return nil }
             var privateTarget = target
             privateTarget.id += ".private"
@@ -114,19 +112,6 @@ final class BrowserCatalog: ObservableObject {
             }
         }
 
-        for root in applicationRoots() {
-            guard
-                let entries = try? FileManager.default.contentsOfDirectory(
-                    at: root,
-                    includingPropertiesForKeys: [.isApplicationKey],
-                    options: [.skipsHiddenFiles]
-                )
-            else { continue }
-            for url in entries where url.pathExtension == "app" && declaresHTTPHandling(url) {
-                applicationURLs.insert(url.standardizedFileURL)
-            }
-        }
-
         let ownBundleID = Bundle.main.bundleIdentifier
         return applicationURLs.compactMap { url in
             guard let bundle = Bundle(url: url),
@@ -150,28 +135,6 @@ final class BrowserCatalog: ObservableObject {
         .sorted { $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending }
     }
 
-    private nonisolated static func applicationRoots() -> [URL] {
-        var roots = [
-            URL(fileURLWithPath: "/Applications", isDirectory: true),
-            URL(fileURLWithPath: "/System/Applications", isDirectory: true),
-            FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Applications", isDirectory: true),
-        ]
-        roots = roots.filter { FileManager.default.fileExists(atPath: $0.path) }
-        return roots
-    }
-
-    private nonisolated static func declaresHTTPHandling(_ url: URL) -> Bool {
-        guard let bundle = Bundle(url: url),
-            let types = bundle.object(forInfoDictionaryKey: "CFBundleURLTypes") as? [[String: Any]]
-        else {
-            return false
-        }
-        return types.contains { type in
-            guard let schemes = type["CFBundleURLSchemes"] as? [String] else { return false }
-            return schemes.contains { ["http", "https"].contains($0.lowercased()) }
-        }
-    }
-
 }
 
 enum BrowserFamilyCatalog {
@@ -179,6 +142,10 @@ enum BrowserFamilyCatalog {
         bundleIdentifier == "com.apple.Safari"
             || chromiumBundleIDs.contains(bundleIdentifier)
             || firefoxBundleIDs.contains(bundleIdentifier)
+    }
+
+    static func supportsPrivateWindows(_ bundleIdentifier: String) -> Bool {
+        chromiumBundleIDs.contains(bundleIdentifier) || firefoxBundleIDs.contains(bundleIdentifier)
     }
 
     static let chromiumBundleIDs: Set<String> = [

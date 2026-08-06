@@ -26,7 +26,7 @@ The Link Router currently implements the following source-level capabilities:
 - Built-in routing definitions for the current Velja service list: Airtable, Amazon Chime, App Store, Apple Music, Around, Asana, ClickUp, Discord, Figma, Front, Jitsi Meet, Linear, Mastodon, Microsoft Teams, Miro, Notion, Pop, Reddit, Slite, Spotify, Telegram, TIDAL, Trello, X/Twitter, Zeplin, and Zoom.
 - Google Meet routing to an automatic Chromium browser or a selected browser, PWA, or application.
 - YouTube routing to a selected browser, PWA, or application.
-- Private/incognito launch targets for Safari, Chromium-family browsers, Firefox, and Zen.
+- Private/incognito launch targets for Chromium-family browsers, Firefox, and Zen without Accessibility automation.
 - Safari, Chromium, and Firefox browser-extension sources, with toolbar/context-menu handoff and a separate force-picker action.
 - macOS Share extension and Services integration for one or many selected URLs.
 - App Intents and App Shortcuts, a Focus Filter intent, Handoff, and a custom URL command scheme.
@@ -123,7 +123,7 @@ PowerTools-LinkRouter/
 
 The portable core has been compiled and tested in the supplied environment. The macOS sources, manifests, property lists, entitlements, scripts, and project specification have been statically validated. The supplied environment is Linux, so it cannot link AppKit, SafariServices, AppIntents, ServiceManagement, or other Apple frameworks and cannot produce or run a signed `.app` bundle.
 
-The first Mac/Xcode pass should therefore be treated as an engineering verification pass, not a formality. In particular, verify browser command-line behavior, current Firefox/Zen profile formats, Safari automation permissions, app-extension activation, Focus behavior, and default-browser registration on the exact macOS release you intend to support.
+The first Mac/Xcode pass should therefore be treated as an engineering verification pass, not a formality. In particular, verify browser command-line behavior, current Firefox/Zen profile formats, app-extension activation, Focus behavior, and default-browser registration on the exact macOS release you intend to support.
 
 ## Product boundaries
 

@@ -5,8 +5,7 @@
   "description": "Open the current page or a link through the Power Tools browser picker and routing rules.",
   "permissions": [
     "activeTab",
-    "contextMenus",
-    "tabs"
+    "contextMenus"
   ],
   "action": {
     "default_title": "Open with Power Tools"

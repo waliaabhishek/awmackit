@@ -381,7 +381,9 @@ private struct BrowserPromptView: View {
         .buttonStyle(.plain)
         .contextMenu {
             if target.kind == .application || target.kind == .browserProfile || target.kind == .browserPWA {
-                Button("Open in New Window") { model.select(target, newWindow: true) }
+                if target.bundleIdentifier != "com.apple.Safari" {
+                    Button("Open in New Window") { model.select(target, newWindow: true) }
+                }
                 Button("Always Use for This Domain") { model.select(target, createRule: true) }
             }
         }

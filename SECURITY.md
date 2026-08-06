@@ -8,15 +8,15 @@ Network access is used only for enabled short-link expansion. Recognized shorten
 
 ## Sandbox model
 
-The host application is a direct-distribution, non-sandboxed utility so it can inspect browser profile and PWA metadata under the user's Application Support and Applications directories. The Safari and Share extensions are sandboxed.
+The host application is a direct-distribution, non-sandboxed utility so it can inspect browser profile and PWA metadata under the user's Application Support and Applications directories. Browser applications themselves are discovered through the system's registered URL handlers rather than by sweeping every installed application bundle. The Safari and Share extensions are sandboxed.
 
 This is a deliberate tradeoff for the broader Power Tools host. A store build should use a separate configuration with security-scoped user-selected folders and should not inherit this entitlement model without review.
 
 ## Sensitive permissions
 
-Safari private-window routing uses Apple Events and synthetic keyboard input through System Events. It should request Accessibility/Automation consent only after the user selects that behavior. Disabling the setting prevents that launch path.
+The Link Router host does not request Accessibility, Automation, Full Disk Access, Screen Recording, or Input Monitoring. Safari private-window routing is intentionally unavailable because Safari does not expose that behavior without privileged UI automation. Private-window routing remains available for Chromium- and Firefox-family browsers through their supported launch arguments.
 
-No other Link Router feature requires Accessibility permission.
+Automatic clipboard cleaning is optional and disabled by default. On current macOS releases, enabling it may cause the system to request pasteboard access when the first copied web URL is inspected. User-invoked clipboard commands remain available without background monitoring.
 
 ## JavaScript transforms
 

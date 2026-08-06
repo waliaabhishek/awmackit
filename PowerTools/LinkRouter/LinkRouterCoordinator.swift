@@ -102,7 +102,6 @@ final class LinkRouterCoordinator {
         var request = incomingRequest
         let settings = settingsStore.settings.linkRouter
         logger.isEnabled = settings.logLevel != .off
-        launcher.safariPrivateUsesAccessibility = settings.safariPrivateUsesAccessibility
         let modifiers = NSEvent.modifierFlags
 
         if applyBrowserPickerModifier(

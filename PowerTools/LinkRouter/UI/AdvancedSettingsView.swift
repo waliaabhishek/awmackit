@@ -54,16 +54,6 @@ struct AdvancedSettingsView: View {
                     .help("The picker can be dragged by its background; its last position is restored across launches.")
                 }
 
-                Section("Browser Launching") {
-                    SettingsToggleRow(
-                        title: "Automate Safari private windows",
-                        detail:
-                            "Safari requires Accessibility permission because it does not expose private-window selection to third-party apps.",
-                        systemImage: "hand.raised",
-                        isOn: setting(\.safariPrivateUsesAccessibility)
-                    )
-                }
-
                 Section("Diagnostics") {
                     SettingsControlRow(title: "Routing log", systemImage: "doc.text.magnifyingglass") {
                         Picker("Routing log", selection: setting(\.logLevel)) {

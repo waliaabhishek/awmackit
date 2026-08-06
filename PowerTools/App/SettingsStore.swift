@@ -237,6 +237,9 @@ final class SettingsStore: ObservableObject {
         if decoded.schemaVersion < 3 {
             current.linkRouter.rules = migratingRulesToCurrentModel(current.linkRouter.rules)
         }
+        if decoded.schemaVersion < 4 {
+            current.linkRouter = migratingUnsupportedSafariPrivateTargets(current.linkRouter)
+        }
         current.schemaVersion = PowerToolsSettings.currentSchemaVersion
         try RuleTransfer().validate(current.linkRouter.rules)
         return current
@@ -267,6 +270,7 @@ final class SettingsStore: ObservableObject {
     ) -> [LinkRule] {
         rules.map { rule in
             var migrated = rule
+            migrated.target = replacingUnsupportedSafariPrivateTarget(migrated.target)
             if migrated.urlMatcherGroups == nil {
                 migrated.urlMatcherGroups =
                     migrated.urlMatchers.isEmpty
@@ -278,6 +282,35 @@ final class SettingsStore: ObservableObject {
             }
             return migrated
         }
+    }
+
+    private nonisolated static func migratingUnsupportedSafariPrivateTargets(
+        _ settings: LinkRouterSettings
+    ) -> LinkRouterSettings {
+        var migrated = settings
+        migrated.primaryTarget = replacingUnsupportedSafariPrivateTarget(migrated.primaryTarget)
+        migrated.alternativeTarget = replacingUnsupportedSafariPrivateTarget(migrated.alternativeTarget)
+        migrated.rules = migratingRulesToCurrentModel(migrated.rules)
+        migrated.browserPresentation.removeAll { $0.id == "app.com.apple.Safari.private" }
+
+        if let target = migrated.googleMeetTarget, isUnsupportedSafariPrivateTarget(target) {
+            migrated.googleMeetTarget = nil
+        }
+        if let target = migrated.youtubeTarget, isUnsupportedSafariPrivateTarget(target) {
+            migrated.youtubeTarget = nil
+            migrated.youtubeRoutingEnabled = false
+        }
+        return migrated
+    }
+
+    private nonisolated static func replacingUnsupportedSafariPrivateTarget(
+        _ target: RouteTarget
+    ) -> RouteTarget {
+        isUnsupportedSafariPrivateTarget(target) ? .prompt : target
+    }
+
+    private nonisolated static func isUnsupportedSafariPrivateTarget(_ target: RouteTarget) -> Bool {
+        target.bundleIdentifier == "com.apple.Safari" && target.openMode == .privateWindow
     }
 
     private nonisolated static func merge(defaults: Any, stored: Any) -> Any {

@@ -5,6 +5,13 @@ import XCTest
 
 @MainActor
 final class SettingsStoreTests: XCTestCase {
+    func testNewInstallPermissionSensitiveDefaults() {
+        let settings = PowerToolsSettings().linkRouter
+
+        XCTAssertTrue(settings.launchAtLogin)
+        XCTAssertFalse(settings.cleanCopiedLinks)
+    }
+
     func testCorruptSettingsRemainUntouchedUntilExplicitRecovery() async throws {
         let directory = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -181,6 +188,47 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(migrated.urlMatcherGroups?.count, 1)
         XCTAssertEqual(migrated.urlMatcherGroups?.first?.mode, .all)
         XCTAssertEqual(migrated.urlMatcherGroups?.first?.matchers.map(\.pattern), ["youtube.com", "/watch"])
+    }
+
+    func testVersionThreeSafariPrivateTargetsMigrateWithoutOpeningNormally() async throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let settingsURL = directory.appendingPathComponent("settings.json")
+        let safariPrivate = RouteTarget(
+            id: "app.com.apple.Safari.private",
+            kind: .application,
+            displayName: "Safari — Private",
+            bundleIdentifier: "com.apple.Safari",
+            openMode: .privateWindow
+        )
+        var oldSettings = PowerToolsSettings()
+        oldSettings.schemaVersion = 3
+        oldSettings.linkRouter.primaryTarget = safariPrivate
+        oldSettings.linkRouter.alternativeTarget = safariPrivate
+        oldSettings.linkRouter.googleMeetTarget = safariPrivate
+        oldSettings.linkRouter.youtubeRoutingEnabled = true
+        oldSettings.linkRouter.youtubeTarget = safariPrivate
+        oldSettings.linkRouter.rules = [LinkRule(name: "Private", target: safariPrivate)]
+        oldSettings.linkRouter.browserPresentation = [
+            BrowserPresentation(id: safariPrivate.id, isShownInPrompt: true)
+        ]
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        try encoder.encode(oldSettings).write(to: settingsURL)
+
+        let store = SettingsStore(settingsURL: settingsURL)
+        await store.loadIfNeeded()
+
+        XCTAssertNil(store.loadIssue)
+        XCTAssertEqual(store.settings.schemaVersion, PowerToolsSettings.currentSchemaVersion)
+        XCTAssertEqual(store.settings.linkRouter.primaryTarget, .prompt)
+        XCTAssertEqual(store.settings.linkRouter.alternativeTarget, .prompt)
+        XCTAssertNil(store.settings.linkRouter.googleMeetTarget)
+        XCTAssertFalse(store.settings.linkRouter.youtubeRoutingEnabled)
+        XCTAssertNil(store.settings.linkRouter.youtubeTarget)
+        XCTAssertEqual(store.settings.linkRouter.rules.first?.target, .prompt)
+        XCTAssertFalse(
+            store.settings.linkRouter.browserPresentation.contains { $0.id == safariPrivate.id })
     }
 
     private func makeTemporaryDirectory() throws -> URL {

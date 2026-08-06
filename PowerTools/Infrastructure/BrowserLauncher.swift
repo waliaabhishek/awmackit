@@ -9,7 +9,7 @@ final class BrowserLauncher {
         case applicationNotFound(String)
         case executableNotFound(String)
         case processFailed(String)
-        case safariPrivateAutomationDisabled
+        case safariPrivateUnsupported
 
         var errorDescription: String? {
             switch self {
@@ -21,15 +21,13 @@ final class BrowserLauncher {
                 "The executable for “\(name)” could not be found."
             case .processFailed(let message):
                 "The application could not be launched: \(message)"
-            case .safariPrivateAutomationDisabled:
-                "Safari private-window routing is disabled. Enable Accessibility automation in Link Router settings or choose another private browser target."
+            case .safariPrivateUnsupported:
+                "Safari private-window routing is unavailable because Power Tools does not request Accessibility permission. Choose another private browser target."
             }
         }
     }
 
     private unowned let browserCatalog: BrowserCatalog
-    var safariPrivateUsesAccessibility = true
-
     init(browserCatalog: BrowserCatalog) {
         self.browserCatalog = browserCatalog
     }
@@ -73,11 +71,7 @@ final class BrowserLauncher {
 
         if target.openMode == .privateWindow {
             if bundleID == "com.apple.Safari" {
-                guard safariPrivateUsesAccessibility else {
-                    throw LaunchError.safariPrivateAutomationDisabled
-                }
-                try await openSafariPrivate(urls)
-                return
+                throw LaunchError.safariPrivateUnsupported
             }
             if BrowserFamilyCatalog.chromiumBundleIDs.contains(bundleID)
                 || BrowserFamilyCatalog.firefoxBundleIDs.contains(bundleID)
@@ -87,11 +81,6 @@ final class BrowserLauncher {
                 try await launchProfile(urls: urls, target: profileTarget, inBackground: inBackground, newWindow: true)
                 return
             }
-        }
-
-        if newWindow, bundleID == "com.apple.Safari" {
-            try await openSafariNewWindow(urls, inBackground: inBackground)
-            return
         }
 
         if newWindow,
@@ -278,55 +267,6 @@ final class BrowserLauncher {
     private static func usesCommandLineHandoff(bundleIdentifier: String) -> Bool {
         BrowserFamilyCatalog.chromiumBundleIDs.contains(bundleIdentifier)
             || BrowserFamilyCatalog.firefoxBundleIDs.contains(bundleIdentifier)
-    }
-
-    private func openSafariPrivate(_ urls: [URL]) async throws {
-        for url in urls {
-            let escaped = appleScriptEscaped(url.absoluteString)
-            let script = """
-                tell application "Safari" to activate
-                delay 0.15
-                tell application "System Events"
-                    tell process "Safari"
-                        keystroke "n" using {command down, shift down}
-                    end tell
-                end tell
-                delay 0.2
-                tell application "Safari"
-                    set URL of front document to "\(escaped)"
-                end tell
-                """
-            try await runAppleScript(script)
-        }
-    }
-
-    private func openSafariNewWindow(_ urls: [URL], inBackground: Bool) async throws {
-        let escapedURLs = urls.map { "\"\(appleScriptEscaped($0.absoluteString))\"" }.joined(separator: ", ")
-        let activate = inBackground ? "" : "activate"
-        let script = """
-            tell application "Safari"
-                \(activate)
-                repeat with targetURL in {\(escapedURLs)}
-                    make new document with properties {URL:targetURL}
-                end repeat
-            end tell
-            """
-        try await runAppleScript(script)
-    }
-
-    private func runAppleScript(_ script: String) async throws {
-        let output = try await AsyncProcessRunner.run(
-            executableURL: URL(fileURLWithPath: "/usr/bin/osascript"),
-            arguments: ["-e", script],
-            timeout: 8
-        )
-        guard output.terminationStatus == 0 else {
-            throw LaunchError.processFailed(String(decoding: output.standardError, as: UTF8.self))
-        }
-    }
-
-    private func appleScriptEscaped(_ value: String) -> String {
-        value.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
     }
 
 }

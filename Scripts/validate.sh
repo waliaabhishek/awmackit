@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 "$ROOT/Scripts/build-browser-extensions.sh"
+python3 "$ROOT/Scripts/validate-permission-policy.py"
 
 for json in BrowserExtensions/PowerToolsLinkRouter/dist/*/manifest.json Extensions/SafariWebExtension/Resources/manifest.json; do
   python3 -m json.tool "$json" >/dev/null

@@ -96,7 +96,6 @@ struct LinkRouterSettings: Codable, Hashable, Sendable {
     var historyLimit = 500
     var logLevel: RoutingLogLevel = .normal
 
-    var safariPrivateUsesAccessibility = true
     var openInBackgroundWhenControlHeld = true
     var optionRevealsPromptActions = true
 }
@@ -111,7 +110,7 @@ enum RoutingLogLevel: String, Codable, CaseIterable, Identifiable, Sendable {
 }
 
 struct PowerToolsSettings: Codable, Hashable, Sendable {
-    static let currentSchemaVersion = 3
+    static let currentSchemaVersion = 4
 
     var schemaVersion = currentSchemaVersion
     var linkRouter = LinkRouterSettings()

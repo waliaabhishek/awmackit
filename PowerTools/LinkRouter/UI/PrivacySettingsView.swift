@@ -7,6 +7,7 @@ struct PrivacySettingsView: View {
     @EnvironmentObject private var historyStore: HistoryStore
     @State private var showsAdvancedSettings = false
     @State private var confirmsClearingHistory = false
+    @State private var confirmsClipboardMonitoring = false
 
     var body: some View {
         ScrollView {
@@ -17,6 +18,14 @@ struct PrivacySettingsView: View {
                 )
 
                 linkProtectionCard
+                    .alert("Allow Automatic Clipboard Cleaning?", isPresented: $confirmsClipboardMonitoring) {
+                        Button("Cancel", role: .cancel) {}
+                        Button("Turn On") { enableClipboardCleaning() }
+                    } message: {
+                        Text(
+                            "Power Tools will check newly copied text for web links. On current macOS releases, the system asks before allowing the first matching clipboard read. Nothing is uploaded."
+                        )
+                    }
                 historyCard
                 advancedCard
 
@@ -61,6 +70,16 @@ struct PrivacySettingsView: View {
                 isOn: cleanCopiedLinks
             )
             .disabled(!trackingProtection.wrappedValue)
+
+            if clipboardAccessIsDenied {
+                Label(
+                    "Pasteboard access is denied. Automatic cleaning will stay off until access is changed in System Settings.",
+                    systemImage: "exclamationmark.triangle.fill"
+                )
+                .font(.caption)
+                .foregroundStyle(.orange)
+                .padding(.leading, SettingsDesign.iconColumnWidth + SettingsDesign.rowSpacing)
+            }
 
             alignedDivider
 
@@ -164,14 +183,35 @@ struct PrivacySettingsView: View {
         Binding(
             get: { settingsStore.settings.linkRouter.cleanCopiedLinks },
             set: { isEnabled in
-                settingsStore.settings.linkRouter.cleanCopiedLinks = isEnabled
                 if isEnabled {
-                    environment.pasteboardMonitor.startIfNeeded()
+                    confirmsClipboardMonitoring = true
                 } else {
+                    settingsStore.settings.linkRouter.cleanCopiedLinks = false
                     environment.pasteboardMonitor.stop()
                 }
             }
         )
+    }
+
+    private var clipboardAccessIsDenied: Bool {
+        if #available(macOS 15.4, *) {
+            return NSPasteboard.general.accessBehavior == .alwaysDeny
+        }
+        return false
+    }
+
+    private func enableClipboardCleaning() {
+        guard !clipboardAccessIsDenied else {
+            let alert = NSAlert()
+            alert.messageText = "Pasteboard Access Is Off"
+            alert.informativeText =
+                "Allow Power Tools under System Settings > Privacy & Security > Pasteboard, then turn automatic cleaning on again."
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+            return
+        }
+        settingsStore.settings.linkRouter.cleanCopiedLinks = true
+        environment.pasteboardMonitor.startIfNeeded()
     }
 
     private func setting<Value>(_ keyPath: WritableKeyPath<LinkRouterSettings, Value>) -> Binding<Value> {
