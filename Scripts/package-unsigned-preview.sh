@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+source "$ROOT/Scripts/build-support.sh"
 
 if [[ "$#" -ne 2 ]]; then
   echo "Usage: $0 <version> <build-number>" >&2
@@ -41,6 +42,7 @@ mkdir -p "$BUILD_ROOT" "$OUTPUT_DIR"
 
 WORK_DIR="$(mktemp -d "$BUILD_ROOT/unsigned-preview.XXXXXX")"
 cleanup() {
+  powertools_unregister_apps_under "$WORK_DIR"
   rm -rf -- "$WORK_DIR"
 }
 trap cleanup EXIT

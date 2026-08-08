@@ -3,6 +3,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+source "$ROOT/Scripts/build-support.sh"
+
+"$ROOT/Scripts/clean-development-builds.sh"
 
 "$ROOT/Scripts/build-browser-extensions.sh"
 python3 "$ROOT/Scripts/validate-permission-policy.py"
@@ -93,26 +96,33 @@ bash -n Scripts/*.sh
 echo "Source validation completed."
 
 if [[ "$(uname -s)" == "Darwin" ]] && command -v xcodegen >/dev/null 2>&1; then
+  VALIDATION_ROOT="$(mktemp -d "${TMPDIR:-/private/tmp}/powertools-validation.XXXXXX")"
+  cleanup_validation() {
+    powertools_unregister_apps_under "$VALIDATION_ROOT"
+    rm -rf -- "$VALIDATION_ROOT"
+  }
+  trap cleanup_validation EXIT
+
   xcodegen generate --spec project.yml
   xcodebuild \
     -project PowerTools.xcodeproj \
     -scheme PowerTools \
     -configuration Debug \
-    -derivedDataPath DerivedData \
+    -derivedDataPath "$VALIDATION_ROOT/Debug" \
     CODE_SIGNING_ALLOWED=NO \
     build
   xcodebuild \
     -project PowerTools.xcodeproj \
     -scheme PowerTools \
     -configuration Release \
-    -derivedDataPath DerivedData-Release \
+    -derivedDataPath "$VALIDATION_ROOT/Release" \
     CODE_SIGNING_ALLOWED=NO \
     build
   xcodebuild \
     -project PowerTools.xcodeproj \
     -scheme PowerTools \
     -configuration Debug \
-    -derivedDataPath DerivedData-Tests \
+    -derivedDataPath "$VALIDATION_ROOT/Tests" \
     -destination 'platform=macOS' \
     CODE_SIGN_IDENTITY=- \
     CODE_SIGNING_REQUIRED=YES \
@@ -120,3 +130,5 @@ if [[ "$(uname -s)" == "Darwin" ]] && command -v xcodegen >/dev/null 2>&1; then
 else
   echo "Xcode build skipped: this validation stage requires macOS with Xcode and XcodeGen."
 fi
+
+powertools_assert_canonical_repo_app "$ROOT"

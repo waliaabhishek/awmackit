@@ -58,9 +58,16 @@ For a local test build that does not require an Apple Developer team, run:
 open build/PowerTools.app
 ```
 
-This produces an ad-hoc-signed app for development on the current Mac. The
-embedded extensions are built and signed consistently, but distribution and
-full extension activation still require normal Apple Developer signing.
+`build/PowerTools.app` is the sole persistent developer app. Xcode intermediates
+live under `build/DerivedData`; Debug, Release, test, or analysis products must
+not be left in repository-level `DerivedData*` directories because macOS can
+discover their duplicate app and extension bundle identifiers. Run
+`./Scripts/clean-development-builds.sh` to unregister and remove legacy outputs.
+
+The local build is ad-hoc signed and runs the host application on the current
+Mac. Embedding the extensions does not prove Safari will expose or activate
+them. Normal embedded-extension activation requires Apple Development signing
+for local development or the appropriate distribution signing for releases.
 
 macOS may require explicit confirmation before changing the default browser. Confirm that both HTTP and HTTPS links are assigned to Power Tools in System Settings.
 
@@ -70,11 +77,15 @@ A default-browser router receives links opened by other applications. Browsers n
 
 ### Safari
 
-1. Run the signed host app once.
-2. Open Power Tools → Settings → Extensions.
-3. Select **Open Safari Extension Settings**.
-4. Enable **Power Tools Link Router** in Safari.
-5. Use the toolbar action or link context menu.
+1. Build all three targets with the same Apple Development Team and run the host app once.
+2. Open Safari → Settings → Extensions.
+3. Enable **Power Tools Link Router**.
+4. Use the toolbar action or link context menu.
+
+For unsigned development only, Safari's Developer settings can load
+`Extensions/SafariWebExtension/Resources` as a temporary extension. This is a
+short-lived test path, not evidence that the embedded extension is correctly
+signed or distributable.
 
 ### Chromium-family browsers
 
