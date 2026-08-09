@@ -3,6 +3,16 @@ import XCTest
 @testable import PowerTools
 
 final class BrowserFamilyCatalogTests: XCTestCase {
+    @MainActor
+    func testApplicationsOnlyDiscoveryDoesNotBlockOnProfilesOrPWAs() async {
+        let catalog = BrowserCatalog()
+
+        await catalog.loadApplicationsIfNeeded()
+
+        XCTAssertTrue(catalog.profiles.isEmpty)
+        XCTAssertTrue(catalog.pwas.isEmpty)
+    }
+
     func testPrivateTargetsExcludeSafariAutomation() {
         XCTAssertFalse(BrowserFamilyCatalog.supportsPrivateWindows("com.apple.Safari"))
         XCTAssertTrue(BrowserFamilyCatalog.supportsPrivateWindows("com.google.Chrome"))

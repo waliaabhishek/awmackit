@@ -8,6 +8,7 @@ struct PrivacySettingsView: View {
     @State private var showsAdvancedSettings = false
     @State private var confirmsClearingHistory = false
     @State private var confirmsClipboardMonitoring = false
+    @State private var historyRecoveryError: String?
 
     var body: some View {
         ScrollView {
@@ -49,6 +50,17 @@ struct PrivacySettingsView: View {
             }
         } message: {
             Text("This permanently removes every saved link from this Mac.")
+        }
+        .alert(
+            "History Recovery Failed",
+            isPresented: Binding(
+                get: { historyRecoveryError != nil },
+                set: { if !$0 { historyRecoveryError = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) { historyRecoveryError = nil }
+        } message: {
+            Text(historyRecoveryError ?? "The history file could not be recovered.")
         }
     }
 
@@ -94,12 +106,35 @@ struct PrivacySettingsView: View {
 
     private var historyCard: some View {
         SettingsSectionCard("History") {
+            if let issue = historyStore.loadIssue {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label(issue.message, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                    Button("Back Up & Reset History…") {
+                        backUpAndResetHistory()
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .padding(.leading, SettingsDesign.iconColumnWidth + SettingsDesign.rowSpacing)
+
+                alignedDivider
+            } else if let persistenceError = historyStore.lastPersistenceError {
+                Label(persistenceError, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .padding(.leading, SettingsDesign.iconColumnWidth + SettingsDesign.rowSpacing)
+
+                alignedDivider
+            }
+
             SettingsToggleRow(
                 title: "Remember opened links",
                 detail: historyDetail,
                 systemImage: "clock.arrow.circlepath",
                 isOn: setting(\.historyEnabled)
             )
+            .disabled(historyStore.loadIssue != nil)
 
             if !historyStore.entries.isEmpty {
                 alignedDivider
@@ -214,6 +249,16 @@ struct PrivacySettingsView: View {
         environment.pasteboardMonitor.startIfNeeded()
     }
 
+    private func backUpAndResetHistory() {
+        Task { @MainActor in
+            do {
+                _ = try await historyStore.backUpAndResetAfterLoadFailure()
+            } catch {
+                historyRecoveryError = error.localizedDescription
+            }
+        }
+    }
+
     private func setting<Value>(_ keyPath: WritableKeyPath<LinkRouterSettings, Value>) -> Binding<Value> {
         Binding(
             get: { settingsStore.settings.linkRouter[keyPath: keyPath] },
@@ -225,7 +270,6 @@ struct PrivacySettingsView: View {
 private struct AdvancedPrivacySettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var settingsStore: SettingsStore
-    @State private var confirmsCheckingAllLinks = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -243,16 +287,6 @@ private struct AdvancedPrivacySettingsView: View {
             }
         }
         .frame(width: 760, height: 600)
-        .alert("Check Every Web Link for Redirects?", isPresented: $confirmsCheckingAllLinks) {
-            Button("Cancel", role: .cancel) {}
-            Button("Turn On") {
-                settingsStore.settings.linkRouter.resolveUnknownRedirects = true
-            }
-        } message: {
-            Text(
-                "Power Tools will contact each web address before opening it, including sites it doesn’t recognize. Those sites can see your IP address and may record or react to the request. Power Tools doesn’t display webpages or run their scripts, and this doesn’t establish that a destination is safe."
-            )
-        }
     }
 
     private var sheetHeader: some View {
@@ -334,32 +368,10 @@ private struct AdvancedPrivacySettingsView: View {
 
     private var shortenedLinksCard: some View {
         SettingsSectionCard("Shortened Links") {
-            SettingsToggleRow(
-                title: "Check all web links for redirects",
-                detail: "Also contacts addresses that are not recognized short-link services.",
-                systemImage: "network",
-                isOn: resolveUnknownRedirects
-            )
-            .disabled(!settingsStore.settings.linkRouter.expandShortURLs)
-
-            if settingsStore.settings.linkRouter.resolveUnknownRedirects {
-                Label(
-                    "Every opened web address may receive a network request before the selected browser opens it.",
-                    systemImage: "exclamationmark.triangle.fill"
-                )
-                .font(.caption)
-                .foregroundStyle(.orange)
-                .padding(10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
-                .padding(.leading, SettingsDesign.iconColumnWidth + SettingsDesign.rowSpacing)
-            }
-
-            alignedDivider
-
             SettingsControlRow(
                 title: "Maximum redirects",
-                detail: "Stops after this many redirect hops while revealing a destination.",
+                detail:
+                    "Stops after this many trusted shortener-to-shortener hops. The final destination is opened by your browser, not fetched by Power Tools.",
                 systemImage: "point.3.connected.trianglepath.dotted",
                 accessoryWidth: 180
             ) {
@@ -375,22 +387,6 @@ private struct AdvancedPrivacySettingsView: View {
                     .labelsHidden()
                 }
                 .fixedSize()
-            }
-            .disabled(!settingsStore.settings.linkRouter.expandShortURLs)
-
-            alignedDivider
-
-            SettingsControlRow(
-                title: "Additional services",
-                detail: "Short-link hostnames you trust Power Tools to contact, one per line.",
-                systemImage: "plus.circle",
-                accessoryWidth: 340
-            ) {
-                MultilineListEditor(
-                    values: setting(\.customShortenerHosts),
-                    placeholder: "go.example.com\nlinks.example.org"
-                )
-                .frame(height: 76)
             }
             .disabled(!settingsStore.settings.linkRouter.expandShortURLs)
 
@@ -443,19 +439,6 @@ private struct AdvancedPrivacySettingsView: View {
     private var alignedDivider: some View {
         Divider()
             .padding(.leading, SettingsDesign.iconColumnWidth + SettingsDesign.rowSpacing)
-    }
-
-    private var resolveUnknownRedirects: Binding<Bool> {
-        Binding(
-            get: { settingsStore.settings.linkRouter.resolveUnknownRedirects },
-            set: { isEnabled in
-                if isEnabled {
-                    confirmsCheckingAllLinks = true
-                } else {
-                    settingsStore.settings.linkRouter.resolveUnknownRedirects = false
-                }
-            }
-        )
     }
 
     private func setting<Value>(_ keyPath: WritableKeyPath<LinkRouterSettings, Value>) -> Binding<Value> {

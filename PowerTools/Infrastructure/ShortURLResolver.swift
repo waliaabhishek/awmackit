@@ -22,6 +22,11 @@ final class ShortURLResolver: @unchecked Sendable {
         }
     }
 
+    enum RedirectDecision: Equatable {
+        case fetch(URL)
+        case finish(URL)
+    }
+
     private let session: URLSession
     private let hostValidator: PublicNetworkHostValidator
     private let cache = ResolutionCache()
@@ -43,19 +48,16 @@ final class ShortURLResolver: @unchecked Sendable {
 
     func resolve(
         _ input: URL,
-        customShortenerHosts: Set<String>,
-        resolveUnknownRedirects: Bool,
         maximumRedirects: Int
     ) async throws -> URL {
-        guard input.absoluteString.utf8.count <= 16_384,
-            let scheme = input.scheme?.lowercased(),
-            scheme == "http" || scheme == "https"
-        else {
+        guard Self.isSupportedWebURL(input) else {
             throw ResolverError.unsupportedURL
         }
 
-        let registry = ShortenerRegistry(customHosts: customShortenerHosts)
-        guard registry.contains(input) || resolveUnknownRedirects else { return input }
+        let registry = ShortenerRegistry()
+        // Restrict network access to a hard-coded trust boundary. A DNS preflight
+        // cannot safely pin an arbitrary host to the address URLSession connects to.
+        guard registry.containsBuiltIn(input) else { return input }
         guard await hostValidator.allows(input) else { throw ResolverError.unsafeDestination }
 
         if let cached = await cache.value(for: input) {
@@ -65,8 +67,10 @@ final class ShortURLResolver: @unchecked Sendable {
         let headResult: URL?
         do {
             headResult = try await finalURL(
-                for: request(url: input, method: "HEAD"),
-                maximumRedirects: maximumRedirects
+                for: input,
+                method: "HEAD",
+                maximumRedirects: maximumRedirects,
+                registry: registry
             )
         } catch let error as ResolverError {
             throw error
@@ -79,13 +83,37 @@ final class ShortURLResolver: @unchecked Sendable {
             final = headResult
         } else {
             final = try await finalURL(
-                for: request(url: input, method: "GET"),
-                maximumRedirects: maximumRedirects
+                for: input,
+                method: "GET",
+                maximumRedirects: maximumRedirects,
+                registry: registry
             )
         }
 
         await cache.insert(final, for: input)
         return final
+    }
+
+    static func redirectDecision(
+        from currentURL: URL,
+        location: String,
+        registry: ShortenerRegistry = ShortenerRegistry()
+    ) throws -> RedirectDecision {
+        guard let destination = URL(string: location, relativeTo: currentURL)?.absoluteURL,
+            isSupportedWebURL(destination)
+        else {
+            throw ResolverError.invalidResponse
+        }
+        return registry.containsBuiltIn(destination) ? .fetch(destination) : .finish(destination)
+    }
+
+    private static func isSupportedWebURL(_ url: URL) -> Bool {
+        guard url.absoluteString.utf8.count <= 16_384,
+            let scheme = url.scheme?.lowercased()
+        else {
+            return false
+        }
+        return scheme == "http" || scheme == "https"
     }
 
     private func request(url: URL, method: String) -> URLRequest {
@@ -99,46 +127,64 @@ final class ShortURLResolver: @unchecked Sendable {
         return request
     }
 
-    private func finalURL(for request: URLRequest, maximumRedirects: Int) async throws -> URL {
+    private func finalURL(
+        for input: URL,
+        method: String,
+        maximumRedirects: Int,
+        registry: ShortenerRegistry
+    ) async throws -> URL {
         let boundedRedirectLimit = min(max(maximumRedirects, 1), 50)
-        let delegate = RedirectGuard(
-            hostValidator: hostValidator,
-            maximumRedirects: boundedRedirectLimit
-        )
-        let (bytes, response) = try await session.bytes(for: request, delegate: delegate)
-        // `bytes(for:)` returns as soon as response headers arrive. Cancelling here avoids
-        // buffering or downloading a body even when a server ignores the Range header.
-        bytes.task.cancel()
+        var current = input
+        var redirectCount = 0
 
-        if let failure = delegate.failure {
-            throw failure
+        while true {
+            guard registry.containsBuiltIn(current),
+                await hostValidator.allows(current)
+            else {
+                throw ResolverError.unsafeDestination
+            }
+
+            let (bytes, response) = try await session.bytes(
+                for: request(url: current, method: method),
+                delegate: RedirectStopper()
+            )
+            // `bytes(for:)` returns as soon as response headers arrive. Cancelling here avoids
+            // buffering or downloading a body even when a server ignores the Range header.
+            bytes.task.cancel()
+
+            guard let response = response as? HTTPURLResponse else {
+                throw ResolverError.invalidResponse
+            }
+            guard (300..<400).contains(response.statusCode) else { return current }
+            guard let location = response.value(forHTTPHeaderField: "Location") else {
+                throw ResolverError.invalidResponse
+            }
+
+            let decision = try Self.redirectDecision(
+                from: response.url ?? current,
+                location: location,
+                registry: registry
+            )
+            switch decision {
+            case .finish(let destination):
+                // The arbitrary destination is returned to the browser without Power Tools
+                // connecting to it. This is the SSRF/DNS-rebinding security boundary.
+                guard await hostValidator.allows(destination) else {
+                    throw ResolverError.unsafeDestination
+                }
+                return destination
+            case .fetch(let destination):
+                redirectCount += 1
+                guard redirectCount <= boundedRedirectLimit else {
+                    throw ResolverError.tooManyRedirects
+                }
+                current = destination
+            }
         }
-        guard let response = response as? HTTPURLResponse,
-            let final = response.url,
-            await hostValidator.allows(final)
-        else {
-            throw ResolverError.invalidResponse
-        }
-        return final
     }
 }
 
-private final class RedirectGuard: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
-    private let hostValidator: PublicNetworkHostValidator
-    private let maximumRedirects: Int
-    private let lock = NSLock()
-    private var redirectCount = 0
-    private var storedFailure: ShortURLResolver.ResolverError?
-
-    init(hostValidator: PublicNetworkHostValidator, maximumRedirects: Int) {
-        self.hostValidator = hostValidator
-        self.maximumRedirects = maximumRedirects
-    }
-
-    var failure: ShortURLResolver.ResolverError? {
-        lock.withLock { storedFailure }
-    }
-
+private final class RedirectStopper: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
     func urlSession(
         _ session: URLSession,
         task: URLSessionTask,
@@ -146,44 +192,7 @@ private final class RedirectGuard: NSObject, URLSessionTaskDelegate, @unchecked 
         newRequest request: URLRequest,
         completionHandler: @escaping (URLRequest?) -> Void
     ) {
-        let completion = RedirectCompletion(completionHandler)
-        let exceedsLimit = lock.withLock { () -> Bool in
-            redirectCount += 1
-            return redirectCount > maximumRedirects
-        }
-        guard !exceedsLimit else {
-            lock.withLock { storedFailure = .tooManyRedirects }
-            completion.call(nil)
-            return
-        }
-
-        Task {
-            guard let destination = request.url,
-                await hostValidator.allows(destination)
-            else {
-                lock.withLock { storedFailure = .unsafeDestination }
-                completion.call(nil)
-                return
-            }
-            completion.call(request)
-        }
-    }
-}
-
-private final class RedirectCompletion: @unchecked Sendable {
-    private let lock = NSLock()
-    private var handler: ((URLRequest?) -> Void)?
-
-    init(_ handler: @escaping (URLRequest?) -> Void) {
-        self.handler = handler
-    }
-
-    func call(_ request: URLRequest?) {
-        let callback = lock.withLock { () -> ((URLRequest?) -> Void)? in
-            defer { handler = nil }
-            return handler
-        }
-        callback?(request)
+        completionHandler(nil)
     }
 }
 

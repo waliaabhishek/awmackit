@@ -71,9 +71,7 @@ struct LinkRouterSettings: Codable, Hashable, Sendable {
     var cleanCopiedLinks = false
     var unwrapEmbeddedRedirects = true
     var expandShortURLs = true
-    var resolveUnknownRedirects = false
     var shortURLRedirectLimit = 10
-    var customShortenerHosts: [String] = []
     var additionalTrackingParameters: [String] = []
     var allowedTrackingParameters: [String] = []
 
@@ -110,7 +108,7 @@ enum RoutingLogLevel: String, Codable, CaseIterable, Identifiable, Sendable {
 }
 
 struct PowerToolsSettings: Codable, Hashable, Sendable {
-    static let currentSchemaVersion = 4
+    static let currentSchemaVersion = 5
 
     var schemaVersion = currentSchemaVersion
     var linkRouter = LinkRouterSettings()

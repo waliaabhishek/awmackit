@@ -18,10 +18,10 @@ The Link Router currently implements the following source-level capabilities:
 - URL rules based on host, subdomain, complete URL, prefix, suffix, path, scheme, query parameter, regular expression, and source application.
 - Positive source-app alternatives and negated source-app exclusions.
 - Rule destinations for browsers, profiles, PWAs, any selected macOS application, the primary/alternative target, the picker, Copy, Share, or discard.
-- User-authored JavaScript URL transforms using the `$.url` / `$.sourceApp` model.
+- User-authored JavaScript URL transforms using the `$.url` / `$.sourceApp` model, isolated in a deadline-enforced helper process.
 - Per-rule new-window and background launch behavior.
 - Removal of more than 200 tracking keys, plus site-specific cleanup for X/Twitter, Facebook, TikTok, YouTube, and Amazon.
-- Embedded redirect unwrapping and recognized short-link expansion.
+- Embedded redirect unwrapping and recognized short-link expansion that never prefetches the arbitrary final destination.
 - Optional automatic cleanup of web URLs copied to the clipboard.
 - Built-in routing definitions for the current Velja service list: Airtable, Amazon Chime, App Store, Apple Music, Around, Asana, ClickUp, Discord, Figma, Front, Jitsi Meet, Linear, Mastodon, Microsoft Teams, Miro, Notion, Pop, Reddit, Slite, Spotify, Telegram, TIDAL, Trello, X/Twitter, Zeplin, and Zoom.
 - Google Meet routing to an automatic Chromium browser or a selected browser, PWA, or application.
@@ -31,7 +31,7 @@ The Link Router currently implements the following source-level capabilities:
 - macOS Share extension and Services integration for one or many selected URLs.
 - App Intents and App Shortcuts, a Focus Filter intent, Handoff, and a custom URL command scheme.
 - Menu-bar browser switching and Option-launch behavior.
-- Local history, searchable diagnostics, and JSON import/export.
+- Bounded journaled local history with corruption recovery, searchable diagnostics, and JSON rule import/export.
 - Songlink creation from a copied music URL.
 - A module registry and `LinkRouterModule` boundary for integration into the broader Power Tools application.
 
@@ -120,11 +120,9 @@ PowerTools-LinkRouter/
 └── project.yml                         XcodeGen project definition
 ```
 
-## Important status note
+## Verification boundary
 
-The portable core has been compiled and tested in the supplied environment. The macOS sources, manifests, property lists, entitlements, scripts, and project specification have been statically validated. The supplied environment is Linux, so it cannot link AppKit, SafariServices, AppIntents, ServiceManagement, or other Apple frameworks and cannot produce or run a signed `.app` bundle.
-
-The first Mac/Xcode pass should therefore be treated as an engineering verification pass, not a formality. In particular, verify browser command-line behavior, current Firefox/Zen profile formats, app-extension activation, Focus behavior, and default-browser registration on the exact macOS release you intend to support.
+`./Scripts/validate.sh` covers the portable core, browser-extension sources, generated Xcode project, host application, app extensions, strict-concurrency diagnostics, and hosted unit tests when full Xcode is available. Release verification must still exercise browser command-line delivery, current Firefox/Zen profile formats, extension activation, Focus behavior, and default-browser registration on every supported macOS/browser combination; compilation alone cannot prove those external integrations.
 
 ## Product boundaries
 

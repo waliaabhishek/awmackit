@@ -22,6 +22,11 @@ public struct ShortenerRegistry: Sendable {
         return Self.builtInHosts.contains(normalized) || customHosts.contains(normalized)
     }
 
+    public func containsBuiltIn(_ url: URL) -> Bool {
+        guard let host = url.host else { return false }
+        return Self.builtInHosts.contains(Self.normalize(host))
+    }
+
     public static func normalize(_ host: String) -> String {
         host.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))
     }

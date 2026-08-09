@@ -107,10 +107,12 @@ final class SettingsStore: ObservableObject {
             return try Self.decodeSettings(from: data)
         }.value
 
+        saveTask?.cancel()
+        try await writer.write(imported, to: settingsURL)
+        settings = imported
         persistenceIsBlocked = false
         loadIssue = nil
-        settings = imported
-        try await saveImmediately()
+        lastSaveErrorMessage = nil
     }
 
     func exportAllSettings(to url: URL) async throws {
@@ -163,10 +165,12 @@ final class SettingsStore: ObservableObject {
             }
         }.value
 
+        let defaults = PowerToolsSettings()
+        try await writer.write(defaults, to: sourceURL)
+        settings = defaults
         persistenceIsBlocked = false
         loadIssue = nil
-        settings = PowerToolsSettings()
-        try await saveImmediately()
+        lastSaveErrorMessage = nil
         return backupURL
     }
 

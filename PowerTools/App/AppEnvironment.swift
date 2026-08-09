@@ -33,12 +33,13 @@ final class AppEnvironment: ObservableObject {
 
     func start() async {
         async let loadSettings: Void = settingsStore.loadIfNeeded()
-        async let refreshCatalog: Void = browserCatalog.refresh()
+        async let refreshCatalog: Void = browserCatalog.loadApplicationsIfNeeded()
         async let loadHistory: Void = historyStore.loadIfNeeded()
         _ = await (loadSettings, refreshCatalog, loadHistory)
 
         ModuleRegistry.shared.register(linkRouterModule)
         pasteboardMonitor.configure(environment: self)
         pasteboardMonitor.startIfNeeded()
+        browserCatalog.refreshDetailsInBackground()
     }
 }

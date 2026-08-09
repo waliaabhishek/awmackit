@@ -110,6 +110,34 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(reloadedStore.settings.linkRouter.shortURLRedirectLimit, 17)
     }
 
+    func testVersionFourUnsafeRedirectOptionsAreRetiredOnMigration() async throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let settingsURL = directory.appendingPathComponent("settings.json")
+        let encodedDefaults = try JSONEncoder().encode(PowerToolsSettings())
+        var object = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encodedDefaults) as? [String: Any]
+        )
+        object["schemaVersion"] = 4
+        var linkRouter = try XCTUnwrap(object["linkRouter"] as? [String: Any])
+        linkRouter["resolveUnknownRedirects"] = true
+        linkRouter["customShortenerHosts"] = ["go.example.com"]
+        object["linkRouter"] = linkRouter
+        try JSONSerialization.data(withJSONObject: object).write(to: settingsURL)
+
+        let store = SettingsStore(settingsURL: settingsURL)
+        await store.loadIfNeeded()
+        try await store.saveImmediately()
+
+        let savedObject = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(contentsOf: settingsURL)) as? [String: Any]
+        )
+        let savedLinkRouter = try XCTUnwrap(savedObject["linkRouter"] as? [String: Any])
+        XCTAssertEqual(store.settings.schemaVersion, PowerToolsSettings.currentSchemaVersion)
+        XCTAssertNil(savedLinkRouter["resolveUnknownRedirects"])
+        XCTAssertNil(savedLinkRouter["customShortenerHosts"])
+    }
+
     func testOversizedSettingsRemainWriteProtected() async throws {
         let directory = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }

@@ -7,7 +7,7 @@ final class PasteboardMonitor {
     private weak var environment: AppEnvironment?
     private var timer: Timer?
     private var lastChangeCount = NSPasteboard.general.changeCount
-    private var isInspecting = false
+    private var inspectionTask: Task<Void, Never>?
 
     func configure(environment: AppEnvironment) {
         self.environment = environment
@@ -32,19 +32,27 @@ final class PasteboardMonitor {
         }
         guard timer == nil else { return }
         timer = Timer.scheduledTimer(withTimeInterval: 0.7, repeats: true) { [weak self] _ in
-            Task { @MainActor in await self?.poll() }
+            Task { @MainActor in self?.beginInspectionIfNeeded() }
         }
     }
 
     func stop() {
         timer?.invalidate()
         timer = nil
+        inspectionTask?.cancel()
+    }
+
+    private func beginInspectionIfNeeded() {
+        guard inspectionTask == nil else { return }
+        inspectionTask = Task { @MainActor [weak self] in
+            await self?.poll()
+            self?.inspectionTask = nil
+        }
     }
 
     private func poll() async {
         guard let environment,
-            environment.settingsStore.settings.linkRouter.cleanCopiedLinks,
-            !isInspecting
+            environment.settingsStore.settings.linkRouter.cleanCopiedLinks
         else {
             lastChangeCount = NSPasteboard.general.changeCount
             return
@@ -53,16 +61,18 @@ final class PasteboardMonitor {
         let pasteboard = NSPasteboard.general
         guard pasteboard.changeCount != lastChangeCount else { return }
         lastChangeCount = pasteboard.changeCount
-        isInspecting = true
-        defer { isInspecting = false }
 
         let copiedValue: String?
         if #available(macOS 15.4, *) {
             do {
                 let requestedPatterns: Set<PartialKeyPath<NSPasteboard.DetectedValues>> = [\.probableWebURL]
                 let detectedPatterns = try await pasteboard.detectedPatterns(for: requestedPatterns)
+                try Task.checkCancellation()
                 guard detectedPatterns.contains(\.probableWebURL) else { return }
                 copiedValue = try await pasteboard.detectedValues(for: requestedPatterns).probableWebURL
+                try Task.checkCancellation()
+            } catch is CancellationError {
+                return
             } catch {
                 if pasteboard.accessBehavior == .alwaysDeny {
                     environment.settingsStore.settings.linkRouter.cleanCopiedLinks = false
@@ -81,7 +91,9 @@ final class PasteboardMonitor {
             copiedValue = pasteboard.string(forType: .string)
         }
 
-        guard let value = copiedValue?.trimmingCharacters(in: .whitespacesAndNewlines),
+        guard !Task.isCancelled,
+            environment.settingsStore.settings.linkRouter.cleanCopiedLinks,
+            let value = copiedValue?.trimmingCharacters(in: .whitespacesAndNewlines),
             value.utf8.count <= 16_384,
             let url = URL(string: value),
             let scheme = url.scheme?.lowercased(),
@@ -96,7 +108,10 @@ final class PasteboardMonitor {
             unwrapRedirects: settings.unwrapEmbeddedRedirects
         )
         let sanitized = sanitizer.sanitize(url).url
-        guard sanitized != url else { return }
+        guard !Task.isCancelled,
+            environment.settingsStore.settings.linkRouter.cleanCopiedLinks,
+            sanitized != url
+        else { return }
         pasteboard.clearContents()
         pasteboard.setString(sanitized.absoluteString, forType: .string)
         lastChangeCount = pasteboard.changeCount

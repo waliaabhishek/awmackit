@@ -67,6 +67,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         isFinishingTermination = true
         Task { @MainActor in
             try? await environment.settingsStore.saveImmediately()
+            try? await environment.historyStore.flush()
             sender.reply(toApplicationShouldTerminate: true)
         }
         return .terminateLater

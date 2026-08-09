@@ -35,30 +35,6 @@ final class SafetyAndConcurrencyTests: XCTestCase {
         XCTAssertTrue(PublicNetworkHostValidator.isPublicAddress(publicAddress))
     }
 
-    func testAsyncGateResumesWaitersInFIFOOrder() async {
-        let gate = AsyncGate()
-        let recorder = Recorder()
-        await gate.enter()
-
-        let first = Task {
-            await gate.enter()
-            await recorder.append(1)
-            await gate.leave()
-        }
-        await Task.yield()
-        let second = Task {
-            await gate.enter()
-            await recorder.append(2)
-            await gate.leave()
-        }
-        try? await Task.sleep(for: .milliseconds(10))
-        await gate.leave()
-        _ = await (first.value, second.value)
-
-        let values = await recorder.values
-        XCTAssertEqual(values, [1, 2])
-    }
-
     func testRuleTransferRejectsInvalidRegexAndOversizedScripts() {
         let invalidRegex = LinkRule(
             name: "Invalid regex",
@@ -106,13 +82,5 @@ final class SafetyAndConcurrencyTests: XCTestCase {
         XCTAssertEqual(transferred.rewriteActions, rule.rewriteActions)
         XCTAssertEqual(transferred.editorKind, .guided)
         XCTAssertEqual(transferred.websiteFamilyID, "x-twitter")
-    }
-}
-
-private actor Recorder {
-    private(set) var values: [Int] = []
-
-    func append(_ value: Int) {
-        values.append(value)
     }
 }

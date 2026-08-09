@@ -22,4 +22,14 @@ final class RedirectAndNativeAppTests: XCTestCase {
         let input = try XCTUnwrap(URL(string: "https://open.spotify.com/track/abc123?si=tracking"))
         XCTAssertEqual(definition.transformedURL(from: input)?.absoluteString, "spotify:track:abc123")
     }
+
+    func testShortenerRegistryDistinguishesBuiltInFromCustomTrust() throws {
+        let registry = ShortenerRegistry(customHosts: ["go.example.com"])
+        let builtIn = try XCTUnwrap(URL(string: "https://BIT.LY/example"))
+        let custom = try XCTUnwrap(URL(string: "https://go.example.com/example"))
+
+        XCTAssertTrue(registry.containsBuiltIn(builtIn))
+        XCTAssertTrue(registry.contains(custom))
+        XCTAssertFalse(registry.containsBuiltIn(custom))
+    }
 }

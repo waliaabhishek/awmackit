@@ -6,8 +6,7 @@ import LinkRouterCore
 
 @MainActor
 final class BrowserCatalog: ObservableObject {
-    private struct DiscoverySnapshot: Sendable {
-        let browsers: [BrowserInstallation]
+    private struct DiscoveryDetails: Sendable {
         let profiles: [BrowserProfile]
         let pwas: [BrowserPWA]
     }
@@ -16,7 +15,12 @@ final class BrowserCatalog: ObservableObject {
     @Published private(set) var profiles: [BrowserProfile] = []
     @Published private(set) var pwas: [BrowserPWA] = []
     @Published private(set) var isRefreshing = false
-    private var refreshTask: Task<DiscoverySnapshot, Never>?
+    private var applicationRefreshTask: Task<[BrowserInstallation], Never>?
+    private var applicationRefreshID: UUID?
+    private var detailRefreshTask: Task<DiscoveryDetails, Never>?
+    private var detailRefreshID: UUID?
+    private var refreshActivityCount = 0
+    private var hasLoadedDetails = false
 
     var normalTargets: [RouteTarget] {
         browsers.map(\.routeTarget) + profiles.map(\.routeTarget) + pwas.map(\.routeTarget)
@@ -48,34 +52,39 @@ final class BrowserCatalog: ObservableObject {
     }
 
     func loadIfNeeded() async {
-        if browsers.isEmpty { await refresh() }
+        await loadApplicationsIfNeeded()
+        guard !hasLoadedDetails else { return }
+        beginRefreshActivity()
+        defer { endRefreshActivity() }
+        await refreshDetails(for: browsers)
+    }
+
+    /// Loads only Launch Services application registrations. Profile and PWA
+    /// discovery intentionally stays off the URL-routing startup path.
+    func loadApplicationsIfNeeded() async {
+        guard browsers.isEmpty else { return }
+        beginRefreshActivity()
+        defer { endRefreshActivity() }
+        _ = await refreshApplications()
     }
 
     func refresh() async {
-        let task: Task<DiscoverySnapshot, Never>
-        if let activeTask = refreshTask {
-            task = activeTask
-        } else {
-            isRefreshing = true
-            let newTask = Task.detached(priority: .userInitiated) {
-                let installations = Self.discoverBrowserInstallations()
-                let profileDiscovery = ProfileDiscovery()
-                return DiscoverySnapshot(
-                    browsers: installations,
-                    profiles: installations.flatMap(profileDiscovery.discoverProfiles(for:)),
-                    pwas: profileDiscovery.discoverPWAs(browsers: installations)
-                )
-            }
-            refreshTask = newTask
-            task = newTask
-        }
+        beginRefreshActivity()
+        defer { endRefreshActivity() }
 
-        let snapshot = await task.value
-        browsers = snapshot.browsers
-        profiles = snapshot.profiles
-        pwas = snapshot.pwas
-        refreshTask = nil
-        isRefreshing = false
+        let installations = await refreshApplications()
+        await refreshDetails(for: installations)
+    }
+
+    func refreshDetailsInBackground() {
+        guard !browsers.isEmpty else { return }
+        let installations = browsers
+        Task { [weak self] in
+            guard let self else { return }
+            self.beginRefreshActivity()
+            defer { self.endRefreshActivity() }
+            await self.refreshDetails(for: installations)
+        }
     }
 
     func target(withID id: String) -> RouteTarget? {
@@ -133,6 +142,77 @@ final class BrowserCatalog: ObservableObject {
             )
         }
         .sorted { $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending }
+    }
+
+    private func refreshApplications() async -> [BrowserInstallation] {
+        let task: Task<[BrowserInstallation], Never>
+        let refreshID: UUID
+        if let applicationRefreshTask {
+            task = applicationRefreshTask
+            refreshID = applicationRefreshID ?? UUID()
+        } else {
+            let newRefreshID = UUID()
+            let newTask = Task.detached(priority: .userInitiated) {
+                Self.discoverBrowserInstallations()
+            }
+            applicationRefreshTask = newTask
+            applicationRefreshID = newRefreshID
+            task = newTask
+            refreshID = newRefreshID
+        }
+
+        let installations = await task.value
+        guard applicationRefreshID == refreshID else { return installations }
+        applicationRefreshTask = nil
+        applicationRefreshID = nil
+        if browsers != installations {
+            browsers = installations
+            profiles = []
+            pwas = []
+            hasLoadedDetails = false
+        }
+        return installations
+    }
+
+    private func refreshDetails(for installations: [BrowserInstallation]) async {
+        let task: Task<DiscoveryDetails, Never>
+        let refreshID: UUID
+        if let detailRefreshTask, browsers == installations {
+            task = detailRefreshTask
+            refreshID = detailRefreshID ?? UUID()
+        } else {
+            let newRefreshID = UUID()
+            let newTask = Task.detached(priority: .utility) {
+                let profileDiscovery = ProfileDiscovery()
+                return DiscoveryDetails(
+                    profiles: installations.flatMap(profileDiscovery.discoverProfiles(for:)),
+                    pwas: profileDiscovery.discoverPWAs(browsers: installations)
+                )
+            }
+            detailRefreshTask = newTask
+            detailRefreshID = newRefreshID
+            task = newTask
+            refreshID = newRefreshID
+        }
+
+        let details = await task.value
+        guard detailRefreshID == refreshID else { return }
+        detailRefreshTask = nil
+        detailRefreshID = nil
+        guard browsers == installations else { return }
+        profiles = details.profiles
+        pwas = details.pwas
+        hasLoadedDetails = true
+    }
+
+    private func beginRefreshActivity() {
+        refreshActivityCount += 1
+        isRefreshing = true
+    }
+
+    private func endRefreshActivity() {
+        refreshActivityCount = max(0, refreshActivityCount - 1)
+        isRefreshing = refreshActivityCount > 0
     }
 
 }

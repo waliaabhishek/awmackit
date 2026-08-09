@@ -44,4 +44,20 @@ final class LinkRouterCoordinatorTests: XCTestCase {
         XCTAssertFalse(request.forcePrompt)
         XCTAssertFalse(request.bypassRules)
     }
+
+    func testCapturedModifierCanBeAppliedAfterThePhysicalKeyIsReleased() throws {
+        let url = try XCTUnwrap(URL(string: "https://example.com/"))
+        var request = RouteRequest(urls: [url])
+        let capturedModifiers: NSEvent.ModifierFlags = [.function]
+
+        let applied = applyBrowserPickerModifier(
+            .function,
+            eventModifiers: capturedModifiers,
+            to: &request
+        )
+
+        XCTAssertTrue(applied)
+        XCTAssertTrue(request.forcePrompt)
+        XCTAssertTrue(request.bypassRules)
+    }
 }
