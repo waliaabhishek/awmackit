@@ -4,6 +4,12 @@ import LinkRouterCore
 
 @MainActor
 final class BrowserLauncher {
+    enum ApplicationURLDelivery: Equatable {
+        case workspaceURLs
+        case launchWithArguments
+        case executableHandoff
+    }
+
     enum LaunchError: LocalizedError {
         case targetIsNotLaunchable
         case applicationNotFound(String)
@@ -69,61 +75,39 @@ final class BrowserLauncher {
         }
         let bundleID = target.bundleIdentifier ?? Bundle(url: appURL)?.bundleIdentifier ?? ""
 
-        if target.openMode == .privateWindow {
-            if bundleID == "com.apple.Safari" {
-                throw LaunchError.safariPrivateUnsupported
-            }
-            if BrowserFamilyCatalog.chromiumBundleIDs.contains(bundleID)
-                || BrowserFamilyCatalog.firefoxBundleIDs.contains(bundleID)
-            {
-                var profileTarget = target
-                profileTarget.kind = .browserProfile
-                try await launchProfile(urls: urls, target: profileTarget, inBackground: inBackground, newWindow: true)
-                return
-            }
+        if target.openMode == .privateWindow, bundleID == "com.apple.Safari" {
+            throw LaunchError.safariPrivateUnsupported
         }
 
-        if newWindow,
-            BrowserFamilyCatalog.chromiumBundleIDs.contains(bundleID)
-                || BrowserFamilyCatalog.firefoxBundleIDs.contains(bundleID)
-        {
-            var profileTarget = target
-            profileTarget.kind = .browserProfile
-            try await launchProfile(urls: urls, target: profileTarget, inBackground: inBackground, newWindow: true)
-            return
-        }
-
-        // NSWorkspace's URL-opening API reliably launches these browsers from a
-        // cold start, but some Chromium/Firefox-family builds only reactivate an
-        // already-running process and silently drop the URLs. Start a short-lived
-        // command-line instance in that case; the browser's singleton handoff
-        // forwards the URLs to the existing process.
-        if Self.usesCommandLineHandoff(bundleIdentifier: bundleID),
-            !NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).isEmpty
-        {
-            let arguments: [String]
-            if BrowserFamilyCatalog.firefoxBundleIDs.contains(bundleID) {
-                arguments = urls.flatMap { ["-new-tab", $0.absoluteString] }
-            } else {
-                arguments = urls.map(\.absoluteString)
-            }
-            try await handOffToRunningBrowser(
+        let isRunning = !NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).isEmpty
+        switch Self.applicationURLDelivery(bundleIdentifier: bundleID, isRunning: isRunning) {
+        case .launchWithArguments, .executableHandoff:
+            let arguments = Self.browserArguments(
+                urls: urls,
+                bundleIdentifier: bundleID,
+                openMode: target.openMode,
+                newWindow: newWindow
+            )
+            try await deliverBrowserArguments(
                 at: appURL,
+                bundleIdentifier: bundleID,
                 arguments: arguments,
-                displayName: target.displayName
+                displayName: target.displayName,
+                activates: !inBackground,
+                isRunning: isRunning
             )
             return
-        }
-
-        let configuration = NSWorkspace.OpenConfiguration()
-        configuration.activates = !inBackground
-        configuration.addsToRecentItems = false
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            NSWorkspace.shared.open(urls, withApplicationAt: appURL, configuration: configuration) { _, error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume(returning: ())
+        case .workspaceURLs:
+            let configuration = NSWorkspace.OpenConfiguration()
+            configuration.activates = !inBackground
+            configuration.addsToRecentItems = false
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                NSWorkspace.shared.open(urls, withApplicationAt: appURL, configuration: configuration) { _, error in
+                    if let error {
+                        continuation.resume(throwing: error)
+                    } else {
+                        continuation.resume(returning: ())
+                    }
                 }
             }
         }
@@ -140,32 +124,21 @@ final class BrowserLauncher {
         }
         guard let bundle = Bundle(url: appURL) else { throw LaunchError.applicationNotFound(target.displayName) }
         let bundleID = target.bundleIdentifier ?? bundle.bundleIdentifier ?? ""
-        var arguments: [String] = []
-
-        if BrowserFamilyCatalog.chromiumBundleIDs.contains(bundleID) {
-            if let profile = target.profileIdentifier, !profile.isEmpty {
-                arguments.append("--profile-directory=\(profile)")
-            }
-            if target.openMode == .privateWindow { arguments.append("--incognito") }
-            if newWindow { arguments.append("--new-window") }
-            arguments.append(contentsOf: urls.map(\.absoluteString))
-        } else if BrowserFamilyCatalog.firefoxBundleIDs.contains(bundleID) {
-            if let profile = target.profileName ?? target.profileIdentifier, !profile.isEmpty {
-                arguments.append(contentsOf: ["-P", profile])
-            }
-            if target.openMode == .privateWindow {
-                arguments.append("-private-window")
-            } else if newWindow {
-                arguments.append("-new-window")
-            } else {
-                arguments.append("-new-tab")
-            }
-            arguments.append(contentsOf: urls.map(\.absoluteString))
-        } else {
-            arguments.append(contentsOf: urls.map(\.absoluteString))
-        }
-
-        try await launchApplication(at: appURL, arguments: arguments, activates: !inBackground)
+        let arguments = Self.browserArguments(
+            urls: urls,
+            bundleIdentifier: bundleID,
+            profileIdentifier: target.profileIdentifier,
+            profileName: target.profileName,
+            openMode: target.openMode,
+            newWindow: newWindow
+        )
+        try await deliverBrowserArguments(
+            at: appURL,
+            bundleIdentifier: bundleID,
+            arguments: arguments,
+            displayName: target.displayName,
+            activates: !inBackground
+        )
     }
 
     private func launchPWA(
@@ -194,7 +167,14 @@ final class BrowserLauncher {
             arguments.append("--app-id=\(appID)")
             if newWindow { arguments.append("--new-window") }
             arguments.append(contentsOf: urls.map(\.absoluteString))
-            try await launchApplication(at: appURL, arguments: arguments, activates: !inBackground)
+            let bundleID = target.bundleIdentifier ?? Bundle(url: appURL)?.bundleIdentifier ?? ""
+            try await deliverBrowserArguments(
+                at: appURL,
+                bundleIdentifier: bundleID,
+                arguments: arguments,
+                displayName: target.displayName,
+                activates: !inBackground
+            )
             return
         }
 
@@ -239,6 +219,29 @@ final class BrowserLauncher {
         }
     }
 
+    private func deliverBrowserArguments(
+        at applicationURL: URL,
+        bundleIdentifier: String,
+        arguments: [String],
+        displayName: String,
+        activates: Bool,
+        isRunning: Bool? = nil
+    ) async throws {
+        let browserIsRunning =
+            isRunning ?? !NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).isEmpty
+        if Self.applicationURLDelivery(bundleIdentifier: bundleIdentifier, isRunning: browserIsRunning)
+            == .executableHandoff
+        {
+            try await handOffToRunningBrowser(
+                at: applicationURL,
+                arguments: arguments,
+                displayName: displayName
+            )
+        } else {
+            try await launchApplication(at: applicationURL, arguments: arguments, activates: activates)
+        }
+    }
+
     private func handOffToRunningBrowser(
         at applicationURL: URL,
         arguments: [String],
@@ -264,7 +267,48 @@ final class BrowserLauncher {
         }
     }
 
-    private static func usesCommandLineHandoff(bundleIdentifier: String) -> Bool {
+    nonisolated static func applicationURLDelivery(
+        bundleIdentifier: String,
+        isRunning: Bool
+    ) -> ApplicationURLDelivery {
+        guard usesCommandLineHandoff(bundleIdentifier: bundleIdentifier) else { return .workspaceURLs }
+        return isRunning ? .executableHandoff : .launchWithArguments
+    }
+
+    nonisolated static func browserArguments(
+        urls: [URL],
+        bundleIdentifier: String,
+        profileIdentifier: String? = nil,
+        profileName: String? = nil,
+        openMode: BrowserOpenMode = .normal,
+        newWindow: Bool = false
+    ) -> [String] {
+        var arguments: [String] = []
+        if BrowserFamilyCatalog.chromiumBundleIDs.contains(bundleIdentifier) {
+            if let profileIdentifier, !profileIdentifier.isEmpty {
+                arguments.append("--profile-directory=\(profileIdentifier)")
+            }
+            if openMode == .privateWindow { arguments.append("--incognito") }
+            if newWindow { arguments.append("--new-window") }
+            arguments.append(contentsOf: urls.map(\.absoluteString))
+        } else if BrowserFamilyCatalog.firefoxBundleIDs.contains(bundleIdentifier) {
+            if let profile = profileName ?? profileIdentifier, !profile.isEmpty {
+                arguments.append(contentsOf: ["-P", profile])
+            }
+            if openMode == .privateWindow {
+                arguments.append(contentsOf: urls.flatMap { ["-private-window", $0.absoluteString] })
+            } else if newWindow {
+                arguments.append(contentsOf: urls.flatMap { ["-new-window", $0.absoluteString] })
+            } else {
+                arguments.append(contentsOf: urls.flatMap { ["-new-tab", $0.absoluteString] })
+            }
+        } else {
+            arguments.append(contentsOf: urls.map(\.absoluteString))
+        }
+        return arguments
+    }
+
+    private nonisolated static func usesCommandLineHandoff(bundleIdentifier: String) -> Bool {
         BrowserFamilyCatalog.chromiumBundleIDs.contains(bundleIdentifier)
             || BrowserFamilyCatalog.firefoxBundleIDs.contains(bundleIdentifier)
     }
