@@ -5,7 +5,7 @@ final class ShareViewController: NSViewController {
     private var didBeginProcessing = false
 
     override func loadView() {
-        let label = NSTextField(labelWithString: "Sending links to Power Tools…")
+        let label = NSTextField(labelWithString: "Sending links to PotliJi…")
         label.alignment = .center
         label.font = .systemFont(ofSize: 13)
         let progress = NSProgressIndicator()
@@ -27,7 +27,7 @@ final class ShareViewController: NSViewController {
         let controller = WeakShareViewController(self)
         collectURLs { urls in
             DispatchQueue.main.async {
-                controller.value?.sendToPowerTools(urls)
+                controller.value?.sendToPotliJi(urls)
             }
         }
     }
@@ -78,19 +78,19 @@ final class ShareViewController: NSViewController {
         }
     }
 
-    private func sendToPowerTools(_ urls: [URL]) {
+    private func sendToPotliJi(_ urls: [URL]) {
         guard !urls.isEmpty else {
             cancel(message: "The shared content does not contain a web URL.")
             return
         }
         var components = URLComponents()
-        components.scheme = "powertools-link"
+        components.scheme = "potliji-link"
         components.host = "open"
         components.queryItems =
             [URLQueryItem(name: "source", value: "share-extension")]
             + urls.map { URLQueryItem(name: "url", value: $0.absoluteString) }
         guard let commandURL = components.url else {
-            cancel(message: "Power Tools could not create a routing command.")
+            cancel(message: "PotliJi could not create a routing command.")
             return
         }
 
@@ -101,7 +101,7 @@ final class ShareViewController: NSViewController {
                     controller.value?.extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
                 } else {
                     controller.value?.cancel(
-                        message: "Power Tools could not be opened. Launch the main app once and try again."
+                        message: "PotliJi could not be opened. Launch the main app once and try again."
                     )
                 }
             }
@@ -110,7 +110,7 @@ final class ShareViewController: NSViewController {
 
     private func cancel(message: String) {
         let error = NSError(
-            domain: "PowerToolsShareExtension",
+            domain: "LinkRouterShareExtension",
             code: 1,
             userInfo: [NSLocalizedDescriptionKey: message]
         )

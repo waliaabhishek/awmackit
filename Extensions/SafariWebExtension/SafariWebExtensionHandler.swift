@@ -9,7 +9,7 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         response.userInfo = [
             SFExtensionMessageKey: [
                 "received": message != nil,
-                "appScheme": "powertools-link",
+                "appScheme": "potliji-link",
             ]
         ]
         context.completeRequest(returningItems: [response], completionHandler: nil)

@@ -2,15 +2,15 @@
 
 ## Local-first behavior
 
-Rules, settings, link history, and diagnostics are stored locally under `~/Library/Application Support/PowerTools`. The app does not include analytics, telemetry, an account system, cloud synchronization, or uploads.
+Rules, settings, link history, and diagnostics are stored locally under `~/Library/Application Support/PotliJi`. The app does not include analytics, telemetry, an account system, cloud synchronization, or uploads.
 
-Network access is used only for enabled short-link expansion. Power Tools contacts only its built-in shortener host list with an ephemeral URLSession. It stops automatic redirects itself: another built-in shortener may be contacted, but the arbitrary final destination is returned to the selected browser without Power Tools fetching it. Custom and unknown redirect-service resolution are intentionally unsupported because a DNS preflight cannot safely pin an arbitrary URLSession connection.
+Network access is used only for enabled short-link expansion. PotliJi contacts only its built-in shortener host list with an ephemeral URLSession. It stops automatic redirects itself: another built-in shortener may be contacted, but the arbitrary final destination is returned to the selected browser without PotliJi fetching it. Custom and unknown redirect-service resolution are intentionally unsupported because a DNS preflight cannot safely pin an arbitrary URLSession connection.
 
 ## Sandbox model
 
 The host application is a direct-distribution, non-sandboxed utility so it can inspect browser profile and PWA metadata under the user's Application Support and Applications directories. Browser applications themselves are discovered through the system's registered URL handlers rather than by sweeping every installed application bundle. The Safari and Share extensions are sandboxed.
 
-This is a deliberate tradeoff for the broader Power Tools host. A store build should use a separate configuration with security-scoped user-selected folders and should not inherit this entitlement model without review.
+This is a deliberate tradeoff for the broader PotliJi host. A store build should use a separate configuration with security-scoped user-selected folders and should not inherit this entitlement model without review.
 
 ## Sensitive permissions
 
@@ -29,7 +29,7 @@ Rule imports may contain JavaScript. Treat a rule file as executable configurati
 
 ## Redirect resolution
 
-Before each request, the resolver verifies that the URL is still a built-in shortener and rejects localhost, link-local, private, reserved, or otherwise non-public destinations. URLSession automatic redirects are disabled. Redirect headers are parsed by Power Tools, and it makes another request only when the next host is also built in; the final arbitrary destination is never prefetched. This makes the network boundary independent of a preflight DNS result for attacker-selected hosts and closes the previous DNS-rebinding/SSRF gap.
+Before each request, the resolver verifies that the URL is still a built-in shortener and rejects localhost, link-local, private, reserved, or otherwise non-public destinations. URLSession automatic redirects are disabled. Redirect headers are parsed by PotliJi, and it makes another request only when the next host is also built in; the final arbitrary destination is never prefetched. This makes the network boundary independent of a preflight DNS result for attacker-selected hosts and closes the previous DNS-rebinding/SSRF gap.
 
 ## History and diagnostics
 

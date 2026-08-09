@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
-SOURCE = ROOT / "BrowserExtensions" / "PowerToolsLinkRouter"
+SOURCE = ROOT / "BrowserExtensions" / "LinkRouter"
 COMMON = SOURCE / "common"
 DIST = SOURCE / "dist"
 

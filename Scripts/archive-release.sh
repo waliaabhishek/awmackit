@@ -11,14 +11,14 @@ cd "$ROOT"
 "$ROOT/Scripts/bootstrap.sh"
 
 xcodebuild \
-  -project PowerTools.xcodeproj \
-  -scheme PowerTools \
+  -project PotliJi.xcodeproj \
+  -scheme PotliJi \
   -configuration Release \
-  -archivePath "$ROOT/build/PowerTools.xcarchive" \
+  -archivePath "$ROOT/build/PotliJi.xcarchive" \
   DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
   archive
 
 "$ROOT/Scripts/package-browser-extensions.sh"
 
-echo "Archive created at $ROOT/build/PowerTools.xcarchive"
+echo "Archive created at $ROOT/build/PotliJi.xcarchive"
 echo "Browser-extension upload packages created under $ROOT/build/browser-extensions"

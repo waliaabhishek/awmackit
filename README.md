@@ -1,6 +1,6 @@
-# Power Tools — Link Router
+# PotliJi
 
-An Xcode-ready macOS link-routing module designed to become one component of the larger **Power Tools** menu-bar application.
+A macOS menu-bar application whose current module, **Link Router**, routes links through the browser, profile, web app, or native application the user chooses.
 
 This is a clean-room implementation of the product category represented by Velja. It does not contain Velja source code, artwork, branding, settings files, or other proprietary assets.
 
@@ -33,7 +33,7 @@ The Link Router currently implements the following source-level capabilities:
 - Menu-bar browser switching and Option-launch behavior.
 - Bounded journaled local history with corruption recovery, searchable diagnostics, and JSON rule import/export.
 - Songlink creation from a copied music URL.
-- A module registry and `LinkRouterModule` boundary for integration into the broader Power Tools application.
+- A module registry and `LinkRouterModule` boundary for integration into the broader PotliJi application.
 
 See [FEATURE_PARITY.md](FEATURE_PARITY.md) for the detailed audit and [ARCHITECTURE.md](ARCHITECTURE.md) for the integration model.
 
@@ -50,16 +50,16 @@ Requirements:
 
 ```bash
 brew install xcodegen
-cd PowerTools-LinkRouter
+cd potliji
 ./Scripts/bootstrap.sh
-open PowerTools.xcodeproj
+open PotliJi.xcodeproj
 ```
 
 In Xcode:
 
-1. Select a Development Team for `PowerTools`, `PowerToolsSafariExtension`, and `PowerToolsShareExtension`.
+1. Select a Development Team for `PotliJi`, `LinkRouterSafariExtension`, and `LinkRouterShareExtension`.
 2. Change the three example bundle identifiers if they conflict with identifiers already registered to your team.
-3. Run the `PowerTools` scheme.
+3. Run the `PotliJi` scheme.
 4. In the app, select **Make Default**.
 5. Enable the Safari extension in Safari settings when testing links that originate inside Safari.
 
@@ -77,7 +77,7 @@ Apple Developer team:
 
 ```bash
 ./Scripts/build-local.sh
-open build/PowerTools.app
+open build/PotliJi.app
 ```
 
 The script uses `/Applications/Xcode.app` by default, regenerates the Xcode
@@ -103,8 +103,8 @@ The validation script:
 ## Project layout
 
 ```text
-PowerTools-LinkRouter/
-├── PowerTools/                         macOS host application
+potliji/
+├── PotliJi/                         macOS host application
 │   ├── App/                            app shell and module registry
 │   ├── Infrastructure/                 browser discovery, launching, persistence
 │   └── LinkRouter/                     coordinator, UI, services, intents
@@ -112,7 +112,7 @@ PowerTools-LinkRouter/
 ├── Extensions/
 │   ├── SafariWebExtension/             embedded Safari extension
 │   └── ShareExtension/                 macOS Share extension
-├── BrowserExtensions/PowerToolsLinkRouter/
+├── BrowserExtensions/LinkRouter/
 │   ├── common/                         shared Safari/Chromium/Firefox code
 │   └── dist/                           generated browser distributions
 ├── Config/                             plists and entitlements
@@ -126,6 +126,6 @@ PowerTools-LinkRouter/
 
 ## Product boundaries
 
-This repository is the Link Router module, not the complete Power Tools suite. Window management, capture, clipboard history, OCR, display controls, and other planned utilities should be separate `PowerToolModule` implementations that reuse the same settings shell, menu-bar host, command surface, and permission dashboard.
+PotliJi is the sole product and host identity. Link Router is the current module; future capabilities should be separate `AppModule` implementations with module-owned names and neutral shared infrastructure.
 
 The repository intentionally does not include licensing, payments, analytics, update infrastructure, localization, notarization credentials, store listings, extension-store publication, or Velja-compatible branding.

@@ -9,8 +9,8 @@ validate:
 test:
 	cd Packages/LinkRouterCore && swift test
 
-build: bootstrap
-	xcodebuild -project PowerTools.xcodeproj -scheme PowerTools -configuration Debug -derivedDataPath DerivedData build
+build:
+	./Scripts/build-local.sh
 
 build-local:
 	./Scripts/build-local.sh

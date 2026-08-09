@@ -9,7 +9,7 @@
 DerivedData*/
 *.xcuserstate
 xcuserdata/
-PowerTools.xcodeproj/
+PotliJi.xcodeproj/
 *.xcarchive
 *.xcresult
 *.dSYM
@@ -22,4 +22,4 @@ build/
 *.xccovreport
 
 # Generated browser-extension distributions
-BrowserExtensions/PowerToolsLinkRouter/dist/
+BrowserExtensions/LinkRouter/dist/

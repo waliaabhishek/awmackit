@@ -2,10 +2,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SOURCE="$ROOT/BrowserExtensions/PowerToolsLinkRouter"
+SOURCE="$ROOT/BrowserExtensions/LinkRouter"
 COMMON="$SOURCE/common"
 DIST="$SOURCE/dist"
-STAGING_ROOT="$(mktemp -d "${TMPDIR:-/private/tmp}/powertools-browser-extensions.XXXXXX")"
+STAGING_ROOT="$(mktemp -d "${TMPDIR:-/private/tmp}/potliji-browser-extensions.XXXXXX")"
 
 cleanup() {
   rm -rf -- "$STAGING_ROOT"

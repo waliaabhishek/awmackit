@@ -25,14 +25,14 @@ From the repository root:
 ```
 
 This generates Safari, Chromium, and Firefox developer distributions from one
-shared WebExtension source and creates `PowerTools.xcodeproj` from `project.yml`.
+shared WebExtension source and creates `PotliJi.xcodeproj` from `project.yml`.
 
 The authoritative browser-extension inputs are:
 
 ```text
-BrowserExtensions/PowerToolsLinkRouter/common
-BrowserExtensions/PowerToolsLinkRouter/manifest.chrome.json
-BrowserExtensions/PowerToolsLinkRouter/manifest.firefox.json
+BrowserExtensions/LinkRouter/common
+BrowserExtensions/LinkRouter/manifest.chrome.json
+BrowserExtensions/LinkRouter/manifest.firefox.json
 Extensions/SafariWebExtension/Resources/manifest.json
 ```
 
@@ -45,25 +45,28 @@ The generated project is intentionally not committed. `project.yml` is the sourc
 
 ## 3. Configure signing
 
-Open `PowerTools.xcodeproj`, then select the same Apple Development Team for all three targets:
+Open `PotliJi.xcodeproj`, then select the same Apple Development Team for all three targets:
 
-- `PowerTools`
-- `PowerToolsSafariExtension`
-- `PowerToolsShareExtension`
+- `PotliJi`
+- `LinkRouterSafariExtension`
+- `LinkRouterShareExtension`
 
 The sample identifiers are:
 
 ```text
-com.abhi.PowerTools
-com.abhi.PowerTools.LinkRouter.SafariExtension
-com.abhi.PowerTools.LinkRouter.ShareExtension
+com.abhi.PotliJi
+com.abhi.PotliJi.Tests
+com.abhi.PotliJi.LinkRouter.SafariExtension
+com.abhi.PotliJi.LinkRouter.ShareExtension
 ```
 
 Change them in `project.yml` when necessary, then regenerate the project. Keep the Safari extension identifier in `ExtensionsSettingsView.swift` synchronized with the target bundle identifier.
 
+The renamed identifiers require corresponding Apple App IDs and provisioning profiles for signed development or distribution. The repository does not claim those external resources already exist. Ad-hoc local builds remain available without them.
+
 ## 4. Run the host application
 
-Run the `PowerTools` scheme. The application is an accessory/menu-bar process and does not show a Dock icon.
+Run the `PotliJi` scheme. The application is an accessory/menu-bar process and does not show a Dock icon.
 
 On first launch it opens Settings. Choose a primary browser or leave **Ask Every Time** as the primary target, then select **Make Default**.
 
@@ -71,10 +74,10 @@ For a local test build that does not require an Apple Developer team, run:
 
 ```bash
 ./Scripts/build-local.sh
-open build/PowerTools.app
+open build/PotliJi.app
 ```
 
-`build/PowerTools.app` is the sole persistent developer app. Xcode intermediates
+`build/PotliJi.app` is the sole persistent developer app. Xcode intermediates
 live under `build/DerivedData`; Debug, Release, test, or analysis products must
 not be left in repository-level `DerivedData*` directories because macOS can
 discover their duplicate app and extension bundle identifiers. Run
@@ -85,7 +88,13 @@ Mac. Embedding the extensions does not prove Safari will expose or activate
 them. Normal embedded-extension activation requires Apple Development signing
 for local development or the appropriate distribution signing for releases.
 
-macOS may require explicit confirmation before changing the default browser. Confirm that both HTTP and HTTPS links are assigned to Power Tools in System Settings.
+macOS may require explicit confirmation before changing the default browser. Confirm that both HTTP and HTTPS links are assigned to PotliJi in System Settings.
+
+### Existing-installation migration
+
+On first launch, PotliJi copies supported settings and history from `~/Library/Application Support/PowerTools/` when the canonical files are missing. Copies are staged and byte-verified, historical data is never deleted, and an existing PotliJi file is never overwritten by historical data.
+
+The previous preference domain `com.abhi.PowerTools` is consulted for onboarding, picker position, Focus target, and settings-pane state. The migrated launch-at-login setting is reconciled normally after settings load. Because macOS sees the new bundle identifier as a new handler, users may need to choose PotliJi again for HTTP and HTTPS; migration never changes those associations silently.
 
 ## 5. Test browser-originated links
 
@@ -95,11 +104,11 @@ A default-browser router receives links opened by other applications. Browsers n
 
 1. Build all three targets with the same Apple Development Team and run the host app once.
 2. Open Safari → Settings → Extensions.
-3. Enable **Power Tools Link Router**.
+3. Enable **PotliJi Link Router**.
 4. Use the toolbar action or link context menu.
 
 For unsigned development only, Safari's Developer settings can load
-`BrowserExtensions/PowerToolsLinkRouter/dist/safari` as a temporary extension. This is a
+`BrowserExtensions/LinkRouter/dist/safari` as a temporary extension. This is a
 short-lived test path, not evidence that the embedded extension is correctly
 signed or distributable.
 
@@ -108,7 +117,7 @@ signed or distributable.
 The bootstrap script creates:
 
 ```text
-BrowserExtensions/PowerToolsLinkRouter/dist/chromium
+BrowserExtensions/LinkRouter/dist/chromium
 ```
 
 Open the browser extension-management page, enable developer mode, and load that folder as an unpacked extension. The toolbar command follows the host app’s **Browser extension always opens the picker** preference; the extension also exposes an explicit picker context-menu/keyboard command.
@@ -118,12 +127,12 @@ Open the browser extension-management page, enable developer mode, and load that
 The bootstrap script creates:
 
 ```text
-BrowserExtensions/PowerToolsLinkRouter/dist/firefox
+BrowserExtensions/LinkRouter/dist/firefox
 ```
 
 Load `manifest.json` as a temporary extension through Firefox's debugging interface during development. The toolbar command follows the host app’s picker preference, while the explicit picker action always shows the chooser. Store publication and signing are separate release tasks.
 
-The extensions hand the selected page/link to the `powertools-link://` command scheme. A browser may display a one-time external-application confirmation.
+The extensions hand the selected page/link to the `potliji-link://` command scheme. The `powertools-link://` and `powertools://` forms remain compatibility aliases for previously generated integrations; new integrations must not emit them. A browser may display a one-time external-application confirmation.
 
 ### Chromium and Firefox upload packages
 
@@ -150,24 +159,24 @@ separate release steps.
 
 ### Share extension
 
-Enable the extension under macOS Login Items & Extensions when it does not appear automatically. Share a URL or selected text and choose **Power Tools Link Router**.
+Enable the extension under macOS Login Items & Extensions when it does not appear automatically. Share a URL or selected text and choose **PotliJi Link Router**.
 
 ### Services
 
 Select text containing one or more URLs, open the Services submenu, and use either:
 
-- **Open URLs with Power Tools**
-- **Open URLs with Power Tools Picker**
+- **Open URLs with PotliJi**
+- **Open URLs with PotliJi Picker**
 
 Services may need to be enabled in Keyboard Shortcuts → Services.
 
 ### Shortcuts and App Intents
 
-After launching the signed app, open Shortcuts and search for Power Tools. Included intents cover routing a URL, cleaning a URL, opening clipboard URLs, and changing the primary browser.
+After launching the signed app, open Shortcuts and search for PotliJi. Included intents cover routing a URL, cleaning a URL, opening clipboard URLs, and changing the primary browser.
 
 ### Focus Filter
 
-Add the Power Tools browser filter from a Focus configuration in System Settings. A current macOS 26.5 system regression has been reported in which `SetFocusFilterIntent.perform()` is not called; test the exact OS build and retain Shortcuts as the fallback automation path.
+Add the PotliJi browser filter from a Focus configuration in System Settings. A current macOS 26.5 system regression has been reported in which `SetFocusFilterIntent.perform()` is not called; test the exact OS build and retain Shortcuts as the fallback automation path.
 
 ### Handoff
 
@@ -183,7 +192,7 @@ Run:
 
 On macOS with XcodeGen installed, this also performs an unsigned Xcode build.
 Validation checks shared browser resources, generated-file drift, manifest and
-app version agreement, WebExtension permissions, JSON, and JavaScript syntax.
+app version agreement, canonical naming, WebExtension permissions, JSON, and JavaScript syntax.
 It also exercises Chromium and Firefox upload packaging in a temporary
 directory. The CI workflow performs the same generation and build on a macOS
 runner.
@@ -238,7 +247,7 @@ DEVELOPMENT_TEAM=ABCDE12345 ./Scripts/archive-release.sh
 The archive is written to:
 
 ```text
-build/PowerTools.xcarchive
+build/PotliJi.xcarchive
 ```
 
 The archive command unconditionally regenerates all extension inputs and also

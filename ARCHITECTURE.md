@@ -2,7 +2,17 @@
 
 ## Goal
 
-The Link Router is implemented as a self-contained Power Tools module, not as a one-off application. It owns link-specific routing, browser discovery, prompt UI, privacy cleanup, and integrations while depending on a small host shell for lifecycle, settings, windows, and menu-bar presentation.
+The Link Router is implemented as a self-contained PotliJi module, not as a one-off application. It owns link-specific routing, browser discovery, prompt UI, privacy cleanup, and integrations while depending on a small host shell for lifecycle, settings, windows, and menu-bar presentation.
+
+The naming hierarchy is deliberately shallow:
+
+```text
+PotliJi                         product and macOS application
+├── Link Router                current module
+└── File Router                future module; not implemented here
+```
+
+There is no second umbrella or intermediate suite layer. Product identity uses `PotliJi`, module-owned code uses its module name, and shared host infrastructure uses neutral `App*` or role-based names.
 
 ## Layering
 
@@ -24,11 +34,11 @@ This package is the stable domain layer and should remain reusable by a command-
 
 ### Host application
 
-`PowerTools/App` provides:
+`PotliJi/App` provides:
 
-- `PowerToolsApp` and the application delegate.
+- `PotliJiApp` and the application delegate.
 - `AppEnvironment`, the composition root.
-- `ModuleRegistry` and `PowerToolModule`.
+- `ModuleRegistry` and `AppModule`.
 - JSON-backed settings.
 - Menu-bar and window presentation.
 
@@ -36,7 +46,7 @@ Future utilities should register their own modules without adding unrelated beha
 
 ### Link Router infrastructure
 
-`PowerTools/Infrastructure` provides macOS-specific adapters:
+`PotliJi/Infrastructure` provides macOS-specific adapters:
 
 - Browser/application discovery through Launch Services and bundle metadata.
 - Chromium, Firefox/Zen, and PWA profile discovery.
@@ -51,9 +61,9 @@ Future utilities should register their own modules without adding unrelated beha
 
 ### Link Router module
 
-`PowerTools/LinkRouter` contains:
+`PotliJi/LinkRouter` contains:
 
-- `LinkRouterModule`, the Power Tools integration boundary.
+- `LinkRouterModule`, the PotliJi integration boundary.
 - `LinkRouterCoordinator`, the routing pipeline.
 - Custom URL command parsing.
 - macOS Services.
@@ -94,25 +104,31 @@ User rules precede built-in service/native-app routing. An explicitly forced tar
 User data is stored under the user's Application Support directory:
 
 ```text
-~/Library/Application Support/PowerTools/settings.json
-~/Library/Application Support/PowerTools/link-history.json
+~/Library/Application Support/PotliJi/settings.json
+~/Library/Application Support/PotliJi/link-history.json
 ```
 
 Settings export includes module configuration and rules. It does not include history or diagnostics.
+
+At startup, migration runs before either persistence store is created. The supported files from `~/Library/Application Support/PowerTools/` are copied into the canonical directory through temporary files and verified byte-for-byte; the historical directory is never deleted. Existing canonical files always win, while missing canonical files may be filled from historical data. Unsupported or unreadable historical files remain untouched.
+
+Preferences previously scoped to `com.abhi.PowerTools` are copied key-by-key only when their canonical equivalents are absent. This covers onboarding state, picker position, the active Focus target, and the selected settings pane. Migrated `launchAtLogin` settings are reconciled after settings load. Default HTTP/HTTPS ownership is never migrated or seized; the user may need to select PotliJi once after the bundle-identifier change.
+
+New integrations emit `potliji-link://` (or `potliji://` for product-level commands). The `powertools-link://` and `powertools://` schemes remain registered only as compatibility aliases and reach the same command parser.
 
 The browser catalog is rebuilt from installed applications and browser support directories rather than persisted as authoritative state. Stored targets keep both stable identifiers and paths so custom applications continue to work when they are not classified as browsers.
 
 ## Module integration contract
 
-The larger Power Tools project can retain this structure:
+The PotliJi host uses this shared contract:
 
 ```swift
 @MainActor
-protocol PowerToolModule: AnyObject {
+protocol AppModule: AnyObject {
     var id: String { get }
     var displayName: String { get }
     var symbolName: String { get }
-    var isEnabled: Bool { get set }
+    var isEnabled: Bool { get }
 
     func start()
     func stop()
@@ -120,14 +136,14 @@ protocol PowerToolModule: AnyObject {
 }
 ```
 
-The eventual host should centralize:
+The host centralizes:
 
 - Menu-bar ownership.
 - Command-palette registration.
 - Launch-at-login state.
 - Permission explanations.
 - Settings migration and export.
-- Update/licensing infrastructure.
+- Product-level infrastructure that may be added explicitly in the future.
 
 The Link Router should continue to own:
 

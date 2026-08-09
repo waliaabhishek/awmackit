@@ -14,7 +14,7 @@ python3 "$ROOT/Scripts/validate-browser-extensions.py"
 
 if ! command -v xcodegen >/dev/null 2>&1; then
   cat >&2 <<'MESSAGE'
-XcodeGen is required to create PowerTools.xcodeproj.
+XcodeGen is required to create PotliJi.xcodeproj.
 Install it with Homebrew:
 
   brew install xcodegen
@@ -27,5 +27,5 @@ fi
 xcodegen generate --spec project.yml
 
 echo
-echo "Generated $ROOT/PowerTools.xcodeproj"
-echo "Open it in Xcode, select your Development Team for all three targets, and run the PowerTools scheme."
+echo "Generated $ROOT/PotliJi.xcodeproj"
+echo "Open it in Xcode, select your Development Team for all three targets, and run the PotliJi scheme."

@@ -42,14 +42,14 @@ mkdir -p "$BUILD_ROOT" "$OUTPUT_DIR"
 
 WORK_DIR="$(mktemp -d "$BUILD_ROOT/unsigned-preview.XXXXXX")"
 cleanup() {
-  powertools_unregister_apps_under "$WORK_DIR"
+  potliji_unregister_apps_under "$WORK_DIR"
   rm -rf -- "$WORK_DIR"
 }
 trap cleanup EXIT
 
 DERIVED_DATA_DIR="$WORK_DIR/DerivedData"
 PRODUCTS_DIR="$WORK_DIR/Products"
-APP_PATH="$PRODUCTS_DIR/PowerTools.app"
+APP_PATH="$PRODUCTS_DIR/PotliJi.app"
 
 "$ROOT/Scripts/bootstrap.sh"
 
@@ -60,8 +60,8 @@ OUTPUT_DIR="$OUTPUT_DIR" \
 
 xcodebuild \
   -quiet \
-  -project PowerTools.xcodeproj \
-  -scheme PowerTools \
+  -project PotliJi.xcodeproj \
+  -scheme PotliJi \
   -configuration Release \
   -derivedDataPath "$DERIVED_DATA_DIR" \
   CONFIGURATION_BUILD_DIR="$PRODUCTS_DIR" \
@@ -81,8 +81,8 @@ fi
 
 bundles=(
   "$APP_PATH"
-  "$APP_PATH/Contents/PlugIns/PowerToolsSafariExtension.appex"
-  "$APP_PATH/Contents/PlugIns/PowerToolsShareExtension.appex"
+  "$APP_PATH/Contents/PlugIns/LinkRouterSafariExtension.appex"
+  "$APP_PATH/Contents/PlugIns/LinkRouterShareExtension.appex"
 )
 
 for bundle in "${bundles[@]}"; do
@@ -114,9 +114,9 @@ done
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 
 executables=(
-  "$APP_PATH/Contents/MacOS/PowerTools"
-  "$APP_PATH/Contents/PlugIns/PowerToolsSafariExtension.appex/Contents/MacOS/PowerToolsSafariExtension"
-  "$APP_PATH/Contents/PlugIns/PowerToolsShareExtension.appex/Contents/MacOS/PowerToolsShareExtension"
+  "$APP_PATH/Contents/MacOS/PotliJi"
+  "$APP_PATH/Contents/PlugIns/LinkRouterSafariExtension.appex/Contents/MacOS/LinkRouterSafariExtension"
+  "$APP_PATH/Contents/PlugIns/LinkRouterShareExtension.appex/Contents/MacOS/LinkRouterShareExtension"
 )
 
 for executable in "${executables[@]}"; do
@@ -132,7 +132,7 @@ for executable in "${executables[@]}"; do
   fi
 done
 
-ARTIFACT_BASE="PowerTools-v${VERSION}-macos-universal-unsigned-preview"
+ARTIFACT_BASE="PotliJi-v${VERSION}-macos-universal-unsigned-preview"
 ZIP_NAME="$ARTIFACT_BASE.zip"
 TEMP_ZIP="$WORK_DIR/$ZIP_NAME"
 
@@ -141,7 +141,7 @@ ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$TEMP_ZIP"
 VERIFY_DIR="$WORK_DIR/verify"
 mkdir -p "$VERIFY_DIR"
 ditto -x -k "$TEMP_ZIP" "$VERIFY_DIR"
-codesign --verify --deep --strict --verbose=2 "$VERIFY_DIR/PowerTools.app"
+codesign --verify --deep --strict --verbose=2 "$VERIFY_DIR/PotliJi.app"
 
 mv -f "$TEMP_ZIP" "$OUTPUT_DIR/$ZIP_NAME"
 (

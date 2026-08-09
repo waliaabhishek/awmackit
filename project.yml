@@ -1,4 +1,4 @@
-name: PowerTools
+name: PotliJi
 options:
   minimumXcodeGenVersion: 2.40.0
   deploymentTarget:
@@ -13,29 +13,29 @@ packages:
     path: Packages/LinkRouterCore
 
 targets:
-  PowerTools:
+  PotliJi:
     type: application
     platform: macOS
     deploymentTarget: "14.0"
     sources:
-      - path: PowerTools
-      - path: BrowserExtensions/PowerToolsLinkRouter/dist
+      - path: PotliJi
+      - path: BrowserExtensions/LinkRouter/dist
         name: BrowserExtension
         type: folder
         buildPhase: resources
     dependencies:
       - package: LinkRouterCore
-      - target: PowerToolsSafariExtension
+      - target: LinkRouterSafariExtension
         embed: true
-      - target: PowerToolsShareExtension
+      - target: LinkRouterShareExtension
         embed: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.abhi.PowerTools
-        PRODUCT_NAME: PowerTools
-        INFOPLIST_FILE: Config/PowerTools-Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.abhi.PotliJi
+        PRODUCT_NAME: PotliJi
+        INFOPLIST_FILE: Config/PotliJi-Info.plist
         GENERATE_INFOPLIST_FILE: NO
-        CODE_SIGN_ENTITLEMENTS: Config/PowerTools.entitlements
+        CODE_SIGN_ENTITLEMENTS: Config/PotliJi.entitlements
         CODE_SIGN_STYLE: Automatic
         ENABLE_HARDENED_RUNTIME: YES
         SWIFT_VERSION: "5.10"
@@ -51,41 +51,41 @@ targets:
     scheme:
       gatherCoverageData: true
       testTargets:
-        - PowerToolsTests
+        - PotliJiTests
 
-  PowerToolsTests:
+  PotliJiTests:
     type: bundle.unit-test
     platform: macOS
     deploymentTarget: "14.0"
     sources:
-      - path: PowerToolsTests
+      - path: PotliJiTests
     dependencies:
-      - target: PowerTools
+      - target: PotliJi
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.abhi.PowerTools.Tests
+        PRODUCT_BUNDLE_IDENTIFIER: com.abhi.PotliJi.Tests
         GENERATE_INFOPLIST_FILE: YES
         SWIFT_VERSION: "5.10"
         SWIFT_STRICT_CONCURRENCY: complete
         SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
         GCC_TREAT_WARNINGS_AS_ERRORS: YES
         MACOSX_DEPLOYMENT_TARGET: "14.0"
-        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/PowerTools.app/Contents/MacOS/PowerTools"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/PotliJi.app/Contents/MacOS/PotliJi"
         BUNDLE_LOADER: "$(TEST_HOST)"
 
-  PowerToolsSafariExtension:
+  LinkRouterSafariExtension:
     type: app-extension
     platform: macOS
     deploymentTarget: "14.0"
     sources:
       - path: Extensions/SafariWebExtension
-      - path: BrowserExtensions/PowerToolsLinkRouter/common
+      - path: BrowserExtensions/LinkRouter/common
         name: SharedWebExtensionResources
         buildPhase: resources
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.abhi.PowerTools.LinkRouter.SafariExtension
-        PRODUCT_NAME: PowerToolsSafariExtension
+        PRODUCT_BUNDLE_IDENTIFIER: com.abhi.PotliJi.LinkRouter.SafariExtension
+        PRODUCT_NAME: LinkRouterSafariExtension
         INFOPLIST_FILE: Config/SafariWebExtension-Info.plist
         GENERATE_INFOPLIST_FILE: NO
         CODE_SIGN_ENTITLEMENTS: Config/SafariWebExtension.entitlements
@@ -100,7 +100,7 @@ targets:
         CURRENT_PROJECT_VERSION: 1
         MARKETING_VERSION: 0.1.0
 
-  PowerToolsShareExtension:
+  LinkRouterShareExtension:
     type: app-extension
     platform: macOS
     deploymentTarget: "14.0"
@@ -108,8 +108,8 @@ targets:
       - path: Extensions/ShareExtension
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.abhi.PowerTools.LinkRouter.ShareExtension
-        PRODUCT_NAME: PowerToolsShareExtension
+        PRODUCT_BUNDLE_IDENTIFIER: com.abhi.PotliJi.LinkRouter.ShareExtension
+        PRODUCT_NAME: LinkRouterShareExtension
         INFOPLIST_FILE: Config/ShareExtension-Info.plist
         GENERATE_INFOPLIST_FILE: NO
         CODE_SIGN_ENTITLEMENTS: Config/ShareExtension.entitlements

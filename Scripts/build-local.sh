@@ -18,14 +18,14 @@ fi
 
 BUILD_ROOT="$ROOT/build"
 DERIVED_DATA_DIR="$BUILD_ROOT/DerivedData"
-APP_PATH="$BUILD_ROOT/PowerTools.app"
+APP_PATH="$BUILD_ROOT/PotliJi.app"
 
 mkdir -p "$BUILD_ROOT"
 
 xcodebuild \
   -quiet \
-  -project PowerTools.xcodeproj \
-  -scheme PowerTools \
+  -project PotliJi.xcodeproj \
+  -scheme PotliJi \
   -configuration Debug \
   -derivedDataPath "$DERIVED_DATA_DIR" \
   CONFIGURATION_BUILD_DIR="$BUILD_ROOT" \
@@ -35,8 +35,8 @@ xcodebuild \
   build
 
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
-powertools_register_canonical_app "$APP_PATH"
-powertools_assert_canonical_repo_app "$ROOT"
+potliji_register_canonical_app "$APP_PATH"
+potliji_assert_canonical_repo_app "$ROOT"
 
 echo
 echo "Canonical local app ready: $APP_PATH"

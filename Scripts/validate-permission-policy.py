@@ -25,14 +25,14 @@ def load_plist(relative_path: str) -> dict:
 
 
 manifest_paths = [
-    "BrowserExtensions/PowerToolsLinkRouter/manifest.chrome.json",
-    "BrowserExtensions/PowerToolsLinkRouter/manifest.firefox.json",
+    "BrowserExtensions/LinkRouter/manifest.chrome.json",
+    "BrowserExtensions/LinkRouter/manifest.firefox.json",
     "Extensions/SafariWebExtension/Resources/manifest.json",
 ]
 for generated in [
-    "BrowserExtensions/PowerToolsLinkRouter/dist/safari/manifest.json",
-    "BrowserExtensions/PowerToolsLinkRouter/dist/chromium/manifest.json",
-    "BrowserExtensions/PowerToolsLinkRouter/dist/firefox/manifest.json",
+    "BrowserExtensions/LinkRouter/dist/safari/manifest.json",
+    "BrowserExtensions/LinkRouter/dist/chromium/manifest.json",
+    "BrowserExtensions/LinkRouter/dist/firefox/manifest.json",
 ]:
     if (ROOT / generated).exists():
         manifest_paths.append(generated)
@@ -49,11 +49,11 @@ for manifest_path in manifest_paths:
         if manifest.get(broad_key):
             fail(f"{manifest_path} declares broad website access through {broad_key}")
 
-host_entitlements = load_plist("Config/PowerTools.entitlements")
+host_entitlements = load_plist("Config/PotliJi.entitlements")
 if host_entitlements:
     fail(f"host entitlements must remain empty, found {sorted(host_entitlements)}")
 
-host_info = load_plist("Config/PowerTools-Info.plist")
+host_info = load_plist("Config/PotliJi-Info.plist")
 for usage_key in ("NSAccessibilityUsageDescription", "NSAppleEventsUsageDescription"):
     if usage_key in host_info:
         fail(f"host Info.plist must not declare {usage_key}")
@@ -70,13 +70,13 @@ for entitlement_path in (
             f"found {entitlements}"
         )
 
-for source_path in (ROOT / "PowerTools").rglob("*.swift"):
+for source_path in (ROOT / "PotliJi").rglob("*.swift"):
     source = source_path.read_text(encoding="utf-8")
     for forbidden in ("/usr/bin/osascript", "NSAppleScript", "AXIsProcessTrusted"):
         if forbidden in source:
             fail(f"{source_path.relative_to(ROOT)} contains privileged automation token {forbidden}")
 
-settings_source = (ROOT / "PowerTools/App/AppSettings.swift").read_text(encoding="utf-8")
+settings_source = (ROOT / "PotliJi/App/AppSettings.swift").read_text(encoding="utf-8")
 for pattern, description in (
     (r"var\s+launchAtLogin\s*=\s*true", "launch at login must default on"),
     (r"var\s+cleanCopiedLinks\s*=\s*false", "automatic clipboard cleaning must default off"),
@@ -84,7 +84,7 @@ for pattern, description in (
     if re.search(pattern, settings_source) is None:
         fail(description)
 
-catalog_source = (ROOT / "PowerTools/Infrastructure/BrowserCatalog.swift").read_text(encoding="utf-8")
+catalog_source = (ROOT / "PotliJi/Infrastructure/BrowserCatalog.swift").read_text(encoding="utf-8")
 if "contentsOfDirectory" in catalog_source or "applicationRoots" in catalog_source:
     fail("browser discovery must use registered URL handlers instead of sweeping application directories")
 

@@ -1,6 +1,6 @@
 # Notice
 
-This repository is a clean-room implementation created for the Power Tools project.
+This repository is a clean-room implementation created for the PotliJi project.
 
 “Velja” is used only to describe the requested interoperability/feature target. Velja is a separate product by its respective developer. No Velja source code, reverse-engineered binary code, artwork, icons, branding, copy-protected content, or private data format is included.
 

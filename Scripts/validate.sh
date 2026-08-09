@@ -10,22 +10,23 @@ source "$ROOT/Scripts/build-support.sh"
 "$ROOT/Scripts/build-browser-extensions.sh"
 python3 "$ROOT/Scripts/validate-browser-extensions.py"
 python3 "$ROOT/Scripts/validate-permission-policy.py"
+python3 "$ROOT/Scripts/validate-naming.py"
 
 # Exercise the store-upload packager during routine CI so it cannot silently
 # rot between release tags. Keep validation artifacts temporary.
 (
-  BROWSER_PACKAGE_CHECK_ROOT="$(mktemp -d "${TMPDIR:-/private/tmp}/powertools-browser-package-check.XXXXXX")"
+  BROWSER_PACKAGE_CHECK_ROOT="$(mktemp -d "${TMPDIR:-/private/tmp}/potliji-browser-package-check.XXXXXX")"
   trap 'rm -rf -- "$BROWSER_PACKAGE_CHECK_ROOT"' EXIT
   OUTPUT_DIR="$BROWSER_PACKAGE_CHECK_ROOT" \
     "$ROOT/Scripts/package-browser-extensions.sh"
 )
 
-for json in BrowserExtensions/PowerToolsLinkRouter/dist/*/manifest.json Extensions/SafariWebExtension/Resources/manifest.json; do
+for json in BrowserExtensions/LinkRouter/dist/*/manifest.json Extensions/SafariWebExtension/Resources/manifest.json; do
   python3 -m json.tool "$json" >/dev/null
   echo "JSON OK: $json"
 done
 
-for javascript in BrowserExtensions/PowerToolsLinkRouter/common/*.js BrowserExtensions/PowerToolsLinkRouter/dist/*/*.js; do
+for javascript in BrowserExtensions/LinkRouter/common/*.js BrowserExtensions/LinkRouter/dist/*/*.js; do
   if command -v node >/dev/null 2>&1; then
     node --check "$javascript" >/dev/null
     echo "JavaScript syntax OK: $javascript"
@@ -48,10 +49,10 @@ with Path("project.yml").open("r", encoding="utf-8") as handle:
     project = yaml.safe_load(handle)
 
 required_targets = {
-    "PowerTools",
-    "PowerToolsTests",
-    "PowerToolsSafariExtension",
-    "PowerToolsShareExtension",
+    "PotliJi",
+    "PotliJiTests",
+    "LinkRouterSafariExtension",
+    "LinkRouterShareExtension",
 }
 actual_targets = set(project.get("targets", {}))
 missing = required_targets - actual_targets
@@ -89,14 +90,14 @@ if xcrun --find swift-format >/dev/null 2>&1; then
     --configuration .swift-format \
     Packages/LinkRouterCore/Sources \
     Packages/LinkRouterCore/Tests \
-    PowerTools \
-    PowerToolsTests \
+    PotliJi \
+    PotliJiTests \
     Extensions
 else
   echo "Swift format validation skipped (swift-format not installed)."
 fi
 
-find PowerTools Extensions -name '*.swift' -print0 | while IFS= read -r -d '' source; do
+find PotliJi Extensions -name '*.swift' -print0 | while IFS= read -r -d '' source; do
   swiftc -parse "$source" >/dev/null
   echo "Swift parse OK: $source"
 done
@@ -106,31 +107,31 @@ bash -n Scripts/*.sh
 echo "Source validation completed."
 
 if [[ "$(uname -s)" == "Darwin" ]] && command -v xcodegen >/dev/null 2>&1; then
-  VALIDATION_ROOT="$(mktemp -d "${TMPDIR:-/private/tmp}/powertools-validation.XXXXXX")"
+  VALIDATION_ROOT="$(mktemp -d "${TMPDIR:-/private/tmp}/potliji-validation.XXXXXX")"
   cleanup_validation() {
-    powertools_unregister_apps_under "$VALIDATION_ROOT"
+    potliji_unregister_apps_under "$VALIDATION_ROOT"
     rm -rf -- "$VALIDATION_ROOT"
   }
   trap cleanup_validation EXIT
 
   xcodegen generate --spec project.yml
   xcodebuild \
-    -project PowerTools.xcodeproj \
-    -scheme PowerTools \
+    -project PotliJi.xcodeproj \
+    -scheme PotliJi \
     -configuration Debug \
     -derivedDataPath "$VALIDATION_ROOT/Debug" \
     CODE_SIGNING_ALLOWED=NO \
     build
   xcodebuild \
-    -project PowerTools.xcodeproj \
-    -scheme PowerTools \
+    -project PotliJi.xcodeproj \
+    -scheme PotliJi \
     -configuration Release \
     -derivedDataPath "$VALIDATION_ROOT/Release" \
     CODE_SIGNING_ALLOWED=NO \
     build
   xcodebuild \
-    -project PowerTools.xcodeproj \
-    -scheme PowerTools \
+    -project PotliJi.xcodeproj \
+    -scheme PotliJi \
     -configuration Debug \
     -derivedDataPath "$VALIDATION_ROOT/Tests" \
     -destination 'platform=macOS' \
@@ -141,4 +142,4 @@ else
   echo "Xcode build skipped: this validation stage requires macOS with Xcode and XcodeGen."
 fi
 
-powertools_assert_canonical_repo_app "$ROOT"
+potliji_assert_canonical_repo_app "$ROOT"

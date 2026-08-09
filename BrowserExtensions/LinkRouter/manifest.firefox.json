@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "PotliJi Link Router",
+  "version": "0.1.0",
+  "description": "Open the current page or a link through the PotliJi browser picker and routing rules.",
+  "permissions": [
+    "activeTab",
+    "contextMenus"
+  ],
+  "action": {
+    "default_title": "Open with PotliJi"
+  },
+  "background": {
+    "scripts": [
+      "background.js"
+    ]
+  },
+  "commands": {
+    "open-current-page": {
+      "suggested_key": {
+        "default": "Alt+Shift+O",
+        "mac": "MacCtrl+Shift+O"
+      },
+      "description": "Open the current page with PotliJi"
+    },
+    "open-current-page-picker": {
+      "suggested_key": {
+        "default": "Alt+Shift+P",
+        "mac": "MacCtrl+Shift+P"
+      },
+      "description": "Open the current page with the PotliJi picker"
+    }
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "link-router@potliji.local",
+      "strict_min_version": "109.0"
+    }
+  }
+}

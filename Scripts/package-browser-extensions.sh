@@ -24,7 +24,7 @@ done
 "$ROOT/Scripts/build-browser-extensions.sh"
 python3 "$ROOT/Scripts/validate-browser-extensions.py"
 
-MANIFEST_VERSION="$(python3 - "$ROOT/BrowserExtensions/PowerToolsLinkRouter/manifest.chrome.json" <<'PYTHON'
+MANIFEST_VERSION="$(python3 - "$ROOT/BrowserExtensions/LinkRouter/manifest.chrome.json" <<'PYTHON'
 import json
 import sys
 
@@ -50,7 +50,7 @@ BUILD_ROOT="$ROOT/build"
 OUTPUT_DIR="${OUTPUT_DIR:-$BUILD_ROOT/browser-extensions}"
 mkdir -p "$BUILD_ROOT" "$OUTPUT_DIR"
 
-STAGING_ROOT="$(mktemp -d "${TMPDIR:-/private/tmp}/powertools-browser-packages.XXXXXX")"
+STAGING_ROOT="$(mktemp -d "${TMPDIR:-/private/tmp}/potliji-browser-packages.XXXXXX")"
 cleanup() {
   rm -rf -- "$STAGING_ROOT"
 }
@@ -59,9 +59,9 @@ trap cleanup EXIT
 package_one() {
   local browser="$1"
   local display_name="$2"
-  local source_directory="$ROOT/BrowserExtensions/PowerToolsLinkRouter/dist/$browser"
+  local source_directory="$ROOT/BrowserExtensions/LinkRouter/dist/$browser"
   local staging_directory="$STAGING_ROOT/$browser"
-  local zip_name="PowerTools-LinkRouter-${display_name}-v${ARTIFACT_VERSION}.zip"
+  local zip_name="PotliJi-LinkRouter-${display_name}-v${ARTIFACT_VERSION}.zip"
   local temporary_zip="$STAGING_ROOT/$zip_name"
   local file_list="$STAGING_ROOT/$browser.files"
   local entry_list="$STAGING_ROOT/$browser.entries"
