@@ -30,6 +30,7 @@ manifest_paths = [
     "Extensions/SafariWebExtension/Resources/manifest.json",
 ]
 for generated in [
+    "BrowserExtensions/PowerToolsLinkRouter/dist/safari/manifest.json",
     "BrowserExtensions/PowerToolsLinkRouter/dist/chromium/manifest.json",
     "BrowserExtensions/PowerToolsLinkRouter/dist/firefox/manifest.json",
 ]:

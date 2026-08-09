@@ -53,6 +53,11 @@ APP_PATH="$PRODUCTS_DIR/PowerTools.app"
 
 "$ROOT/Scripts/bootstrap.sh"
 
+# Fail before the expensive universal app build if the release tag's numeric
+# version disagrees with the browser manifests or project version.
+OUTPUT_DIR="$OUTPUT_DIR" \
+  "$ROOT/Scripts/package-browser-extensions.sh" "$BUNDLE_VERSION" "$VERSION"
+
 xcodebuild \
   -quiet \
   -project PowerTools.xcodeproj \
@@ -147,3 +152,4 @@ mv -f "$TEMP_ZIP" "$OUTPUT_DIR/$ZIP_NAME"
 echo
 echo "Unsigned preview ready: $OUTPUT_DIR/$ZIP_NAME"
 echo "Checksum ready: $OUTPUT_DIR/$ZIP_NAME.sha256"
+echo "Chromium and Firefox preview packages ready in: $OUTPUT_DIR"

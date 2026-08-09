@@ -45,6 +45,7 @@ Requirements:
 - Xcode 16 or later.
 - Swift 5.10 or later.
 - XcodeGen 2.40 or later.
+- Python 3.
 - An Apple Developer team for a signed local build and extension testing.
 
 ```bash
@@ -112,8 +113,8 @@ PowerTools-LinkRouter/
 │   ├── SafariWebExtension/             embedded Safari extension
 │   └── ShareExtension/                 macOS Share extension
 ├── BrowserExtensions/PowerToolsLinkRouter/
-│   ├── common/                         shared WebExtension code
-│   └── dist/                           generated Chromium and Firefox folders
+│   ├── common/                         shared Safari/Chromium/Firefox code
+│   └── dist/                           generated browser distributions
 ├── Config/                             plists and entitlements
 ├── Scripts/                            build, validation, and archive scripts
 └── project.yml                         XcodeGen project definition

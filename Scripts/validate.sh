@@ -8,14 +8,24 @@ source "$ROOT/Scripts/build-support.sh"
 "$ROOT/Scripts/clean-development-builds.sh"
 
 "$ROOT/Scripts/build-browser-extensions.sh"
+python3 "$ROOT/Scripts/validate-browser-extensions.py"
 python3 "$ROOT/Scripts/validate-permission-policy.py"
+
+# Exercise the store-upload packager during routine CI so it cannot silently
+# rot between release tags. Keep validation artifacts temporary.
+(
+  BROWSER_PACKAGE_CHECK_ROOT="$(mktemp -d "${TMPDIR:-/private/tmp}/powertools-browser-package-check.XXXXXX")"
+  trap 'rm -rf -- "$BROWSER_PACKAGE_CHECK_ROOT"' EXIT
+  OUTPUT_DIR="$BROWSER_PACKAGE_CHECK_ROOT" \
+    "$ROOT/Scripts/package-browser-extensions.sh"
+)
 
 for json in BrowserExtensions/PowerToolsLinkRouter/dist/*/manifest.json Extensions/SafariWebExtension/Resources/manifest.json; do
   python3 -m json.tool "$json" >/dev/null
   echo "JSON OK: $json"
 done
 
-for javascript in BrowserExtensions/PowerToolsLinkRouter/common/*.js BrowserExtensions/PowerToolsLinkRouter/dist/*/*.js Extensions/SafariWebExtension/Resources/*.js; do
+for javascript in BrowserExtensions/PowerToolsLinkRouter/common/*.js BrowserExtensions/PowerToolsLinkRouter/dist/*/*.js; do
   if command -v node >/dev/null 2>&1; then
     node --check "$javascript" >/dev/null
     echo "JavaScript syntax OK: $javascript"

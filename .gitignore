@@ -6,7 +6,6 @@
 .swiftpm/
 
 # Xcode and XcodeGen output
-BrowserExtensions/PowerToolsLinkRouter/dist/
 DerivedData*/
 *.xcuserstate
 xcuserdata/

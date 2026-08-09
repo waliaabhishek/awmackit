@@ -9,6 +9,14 @@ This repository builds a macOS menu-bar application with LaunchServices URL hand
 - Run `./Scripts/bootstrap.sh` after changing `project.yml` or browser-extension sources.
 - Use full Xcode through `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`.
 
+## Browser-extension source and artifacts
+
+- `BrowserExtensions/PowerToolsLinkRouter/common` is the single source of truth for Safari, Chromium, and Firefox WebExtension HTML/JavaScript.
+- Browser-specific manifests remain reviewable source files. Do not duplicate shared WebExtension files under the Safari target or edit generated files under `BrowserExtensions/PowerToolsLinkRouter/dist`.
+- `./Scripts/build-browser-extensions.sh` recreates developer-loadable Safari, Chromium, and Firefox folders. `bootstrap.sh`, `build-local.sh`, `validate.sh`, preview packaging, and signed archives invoke it for you.
+- Keep every browser manifest version aligned with `MARKETING_VERSION`. `./Scripts/validate-browser-extensions.py` enforces source/output equality and version consistency.
+- Use `./Scripts/package-browser-extensions.sh` for deterministic Chromium and Firefox store-upload ZIPs. These ZIPs are unsigned inputs to browser-store review, not published or signed extensions.
+
 ## Canonical developer build
 
 - `build/PowerTools.app` is the only persistent runnable developer app.
@@ -37,4 +45,5 @@ This repository builds a macOS menu-bar application with LaunchServices URL hand
 
 - Unsigned preview builds are explicitly ad-hoc signed, unnotarized evaluation artifacts. Never describe them as Developer ID signed, notarized, or production-ready.
 - Archives and preview packages belong under `build/`; do not launch their nested app copies as developer builds.
+- Signed archives must regenerate browser extensions even when `PowerTools.xcodeproj` already exists.
 - Preserve user changes and keep generated Xcode/DerivedData/build outputs out of commits.

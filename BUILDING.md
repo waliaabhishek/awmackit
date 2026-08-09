@@ -7,6 +7,7 @@ Use a Mac with:
 - macOS 14 or later.
 - Xcode 16 or later selected with `xcode-select`.
 - Homebrew and XcodeGen 2.40 or later.
+- Python 3 for browser-extension validation and packaging.
 - An Apple Developer identity when testing embedded extensions or producing a signed archive.
 
 Install XcodeGen:
@@ -23,7 +24,22 @@ From the repository root:
 ./Scripts/bootstrap.sh
 ```
 
-This builds browser-extension distributions and generates `PowerTools.xcodeproj` from `project.yml`.
+This generates Safari, Chromium, and Firefox developer distributions from one
+shared WebExtension source and creates `PowerTools.xcodeproj` from `project.yml`.
+
+The authoritative browser-extension inputs are:
+
+```text
+BrowserExtensions/PowerToolsLinkRouter/common
+BrowserExtensions/PowerToolsLinkRouter/manifest.chrome.json
+BrowserExtensions/PowerToolsLinkRouter/manifest.firefox.json
+Extensions/SafariWebExtension/Resources/manifest.json
+```
+
+The Safari Xcode target consumes `common` directly. The generated `dist`
+folders are disposable and gitignored; never edit them. Validation proves that
+all generated folders match the shared inputs and that every extension version
+matches the Xcode `MARKETING_VERSION`.
 
 The generated project is intentionally not committed. `project.yml` is the source of truth.
 
@@ -83,7 +99,7 @@ A default-browser router receives links opened by other applications. Browsers n
 4. Use the toolbar action or link context menu.
 
 For unsigned development only, Safari's Developer settings can load
-`Extensions/SafariWebExtension/Resources` as a temporary extension. This is a
+`BrowserExtensions/PowerToolsLinkRouter/dist/safari` as a temporary extension. This is a
 short-lived test path, not evidence that the embedded extension is correctly
 signed or distributable.
 
@@ -108,6 +124,27 @@ BrowserExtensions/PowerToolsLinkRouter/dist/firefox
 Load `manifest.json` as a temporary extension through Firefox's debugging interface during development. The toolbar command follows the host app’s picker preference, while the explicit picker action always shows the chooser. Store publication and signing are separate release tasks.
 
 The extensions hand the selected page/link to the `powertools-link://` command scheme. A browser may display a one-time external-application confirmation.
+
+### Chromium and Firefox upload packages
+
+Create deterministic, root-manifest ZIPs for store upload with:
+
+```bash
+./Scripts/package-browser-extensions.sh
+```
+
+The script rebuilds and validates all three browser distributions before
+writing Chromium and Firefox ZIPs plus SHA-256 checksums under
+`build/browser-extensions/`. Pass an expected numeric manifest version to make
+a release fail on a version mismatch:
+
+```bash
+./Scripts/package-browser-extensions.sh 1.0.0
+```
+
+Safari is distributed inside the signed macOS application. Chromium and
+Firefox ZIPs are store-upload inputs; publication and store signing remain
+separate release steps.
 
 ## 6. Test Share, Services, Shortcuts, Focus, and Handoff
 
@@ -144,7 +181,12 @@ Run:
 ./Scripts/validate.sh
 ```
 
-On macOS with XcodeGen installed, this also performs an unsigned Xcode build. The CI workflow performs the same generation and build on a macOS runner.
+On macOS with XcodeGen installed, this also performs an unsigned Xcode build.
+Validation checks shared browser resources, generated-file drift, manifest and
+app version agreement, WebExtension permissions, JSON, and JavaScript syntax.
+It also exercises Chromium and Firefox upload packaging in a temporary
+directory. The CI workflow performs the same generation and build on a macOS
+runner.
 
 ## 8. Publish an unsigned preview
 
@@ -159,7 +201,10 @@ git push origin v0.1.0-preview.1
 Tags matching `v*.*.*-preview.*` trigger the unsigned-preview release workflow.
 The workflow validates the exact tag format, runs the complete test/build
 pipeline, creates an ad-hoc-signed universal app, verifies its signatures and
-bundle versions, and publishes a GitHub prerelease with a SHA-256 checksum.
+bundle versions, and publishes a GitHub prerelease with SHA-256 checksums. The
+prerelease also contains developer packages for Chromium and Firefox; these
+remain unpacked/manual-test inputs until their browser stores sign and publish
+them.
 The numeric portion of the tag becomes the Apple-compliant bundle version, so
 `v0.1.0-preview.1` produces `CFBundleShortVersionString` `0.1.0`; the preview
 sequence remains in the tag, release title, and asset name.
@@ -175,7 +220,8 @@ To exercise the same packaging locally without publishing a release:
 ./Scripts/package-unsigned-preview.sh 0.1.0-preview.1 1
 ```
 
-The ZIP and checksum are written under `build/releases/`.
+The app ZIP, Chromium and Firefox ZIPs, and their checksums are written under
+`build/releases/`.
 
 Repository administrators can add required reviewers to the
 `unsigned-preview-release` GitHub environment when release tags should require
@@ -193,6 +239,13 @@ The archive is written to:
 
 ```text
 build/PowerTools.xcarchive
+```
+
+The archive command unconditionally regenerates all extension inputs and also
+creates validated Chromium and Firefox upload packages under:
+
+```text
+build/browser-extensions
 ```
 
 Distribution outside the Mac App Store still requires Developer ID signing and notarization. Those credentials are intentionally not embedded in this repository.

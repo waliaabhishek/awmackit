@@ -59,16 +59,23 @@ jobs:
           asset_name="PowerTools-v${PREVIEW_VERSION}-macos-universal-unsigned-preview.zip"
           asset_path="build/releases/$asset_name"
           checksum_path="$asset_path.sha256"
+          chromium_name="PowerTools-LinkRouter-Chromium-v${PREVIEW_VERSION}.zip"
+          firefox_name="PowerTools-LinkRouter-Firefox-v${PREVIEW_VERSION}.zip"
           release_notes='> [!WARNING]
           > This is an unsigned preview. The app is ad-hoc signed, not Developer ID signed, and not notarized by Apple. It is intended for evaluation and testing; macOS Gatekeeper may prevent normal installation.
 
           - Requires macOS 14 or later.
           - Contains universal arm64 and x86_64 executables.
+          - Includes Chromium and Firefox developer packages for manual testing; they are not browser-store signed or published.
           - The attached SHA-256 file can be used to verify the download.'
 
           gh release create "$RELEASE_TAG" \
             "$asset_path#PowerTools for macOS (unsigned preview)" \
             "$checksum_path#SHA-256 checksum" \
+            "build/releases/$chromium_name#Chromium extension developer package" \
+            "build/releases/$chromium_name.sha256#Chromium extension SHA-256" \
+            "build/releases/$firefox_name#Firefox extension developer package" \
+            "build/releases/$firefox_name.sha256#Firefox extension SHA-256" \
             --verify-tag \
             --prerelease \
             --latest=false \

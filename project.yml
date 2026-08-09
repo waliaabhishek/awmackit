@@ -79,6 +79,9 @@ targets:
     deploymentTarget: "14.0"
     sources:
       - path: Extensions/SafariWebExtension
+      - path: BrowserExtensions/PowerToolsLinkRouter/common
+        name: SharedWebExtensionResources
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.abhi.PowerTools.LinkRouter.SafariExtension

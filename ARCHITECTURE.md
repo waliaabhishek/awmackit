@@ -62,9 +62,10 @@ Future utilities should register their own modules without adding unrelated beha
 
 ### Extensions
 
-- The Safari WebExtension is embedded in the signed host app.
+- Safari, Chromium, and Firefox consume one shared WebExtension HTML/JavaScript source with browser-specific manifests.
+- The Safari WebExtension is built as an app extension and embedded in the signed host app.
 - The Share extension hands URLs to the host through the custom command scheme.
-- Chromium and Firefox extension folders are generated from shared WebExtension sources.
+- Disposable developer distributions are generated for all three browsers; deterministic Chromium and Firefox ZIPs are produced separately for store upload.
 
 ## Routing pipeline
 

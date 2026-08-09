@@ -3,18 +3,57 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SOURCE="$ROOT/BrowserExtensions/PowerToolsLinkRouter"
+COMMON="$SOURCE/common"
+DIST="$SOURCE/dist"
+STAGING_ROOT="$(mktemp -d "${TMPDIR:-/private/tmp}/powertools-browser-extensions.XXXXXX")"
+
+cleanup() {
+  rm -rf -- "$STAGING_ROOT"
+}
+trap cleanup EXIT
 
 build_one() {
   local browser="$1"
   local manifest="$2"
-  local destination="$SOURCE/dist/$browser"
-  rm -rf "$destination"
-  mkdir -p "$destination"
-  cp "$SOURCE/common/"* "$destination/"
-  cp "$SOURCE/$manifest" "$destination/manifest.json"
+  local staging="$STAGING_ROOT/$browser"
+
+  if [[ ! -f "$manifest" ]]; then
+    echo "Missing $browser manifest: $manifest" >&2
+    exit 1
+  fi
+
+  mkdir -p "$staging"
+  cp -R "$COMMON/." "$staging/"
+  cp "$manifest" "$staging/manifest.json"
 }
 
-build_one chromium manifest.chrome.json
-build_one firefox manifest.firefox.json
+publish_one() {
+  local browser="$1"
+  local staging="$STAGING_ROOT/$browser"
+  local destination="$DIST/$browser"
 
-echo "Built browser extensions in $SOURCE/dist"
+  rm -rf -- "$destination"
+  mkdir -p "$DIST"
+  mv "$staging" "$destination"
+}
+
+if [[ ! -d "$COMMON" ]]; then
+  echo "Missing shared WebExtension source directory: $COMMON" >&2
+  exit 1
+fi
+if [[ -z "$(find "$COMMON" -type f -print -quit)" ]]; then
+  echo "Shared WebExtension source directory is empty: $COMMON" >&2
+  exit 1
+fi
+
+# Stage every browser before replacing any generated output. A missing source
+# file therefore leaves the previously generated distributions untouched.
+build_one safari "$ROOT/Extensions/SafariWebExtension/Resources/manifest.json"
+build_one chromium "$SOURCE/manifest.chrome.json"
+build_one firefox "$SOURCE/manifest.firefox.json"
+
+publish_one safari
+publish_one chromium
+publish_one firefox
+
+echo "Built Safari, Chromium, and Firefox extensions in $DIST"
